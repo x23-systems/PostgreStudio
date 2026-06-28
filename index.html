@@ -1,0 +1,3757 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark light" />
+  <title>PGlite Studio 2.5.3 — PostgreSQL dans le navigateur</title>
+
+  <!-- Éditeur SQL CodeMirror 5, chargé depuis CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/theme/material-darker.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/dialog/dialog.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/search/matchesonscrollbar.min.css" />
+
+  <style>
+    :root {
+      --bg: #081019;
+      --panel: #0d1722;
+      --panel-2: #111e2b;
+      --panel-3: #162536;
+      --border: #223449;
+      --border-soft: #1a2a3c;
+      --text: #e8eef5;
+      --muted: #8fa2b7;
+      --accent: #21d4a4;
+      --accent-2: #54a8ff;
+      --danger: #ff667a;
+      --warning: #ffc857;
+      --success: #45d483;
+      --shadow: 0 16px 40px rgba(0,0,0,.32);
+      --sidebar-width: 310px;
+      --editor-height: 46%;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, input, select { font: inherit; }
+
+    button {
+      border: 0;
+      color: inherit;
+    }
+
+    .app {
+      display: grid;
+      grid-template-rows: 54px minmax(0, 1fr) 27px;
+      width: 100%;
+      height: 100%;
+      background:
+        radial-gradient(circle at 70% -15%, rgba(33,212,164,.10), transparent 28%),
+        var(--bg);
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(13,23,34,.92);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 6px 22px rgba(0,0,0,.18);
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      min-width: 225px;
+      gap: 10px;
+      user-select: none;
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      background: linear-gradient(135deg, var(--accent), #1f8fff);
+      color: #06151a;
+      font-weight: 900;
+      box-shadow: 0 8px 24px rgba(33,212,164,.22);
+    }
+
+    .brand-title { font-weight: 750; letter-spacing: -.02em; }
+    .brand-version {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 7px;
+      padding: 2px 6px;
+      border: 1px solid rgba(91,192,167,.32);
+      border-radius: 999px;
+      color: #8bd9c5;
+      background: rgba(91,192,167,.08);
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: .02em;
+      vertical-align: 2px;
+    }
+
+    .brand-subtitle { color: var(--muted); font-size: 11px; margin-top: 1px; }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .spacer { flex: 1; }
+
+    .btn {
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 0 11px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: linear-gradient(180deg, #172638, #101c29);
+      color: #dce7f2;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: border-color .15s, background .15s, transform .08s;
+    }
+
+    .btn:hover:not(:disabled) { border-color: #3b5875; background: #1a2b3d; }
+    .btn:active:not(:disabled) { transform: translateY(1px); }
+    .btn:disabled { opacity: .48; cursor: not-allowed; }
+    .btn.primary {
+      border-color: rgba(33,212,164,.55);
+      background: linear-gradient(180deg, #1bcf9e, #13a97f);
+      color: #041510;
+      font-weight: 750;
+    }
+    .btn.primary:hover:not(:disabled) { background: linear-gradient(180deg, #34e2b2, #18b88a); }
+    .btn.danger { color: #ff9cac; }
+    .btn.danger-solid {
+      border-color: rgba(255,102,122,.62);
+      background: linear-gradient(180deg, #c93f55, #9f2d42);
+      color: #fff;
+      font-weight: 760;
+    }
+    .btn.danger-solid:hover:not(:disabled) { background: linear-gradient(180deg, #dc4b62, #b4354b); }
+    .btn.icon-only { width: 32px; padding: 0; }
+    .btn.compact { height: 28px; padding: 0 9px; font-size: 12px; }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+      max-width: 280px;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 12px;
+      background: rgba(4,11,17,.38);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--warning);
+      box-shadow: 0 0 0 4px rgba(255,200,87,.10);
+    }
+    .status-dot.ready { background: var(--success); box-shadow: 0 0 0 4px rgba(69,212,131,.10); }
+    .status-dot.error { background: var(--danger); box-shadow: 0 0 0 4px rgba(255,102,122,.10); }
+    .status-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .main {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) 5px minmax(0, 1fr);
+      min-height: 0;
+    }
+
+    .sidebar {
+      min-width: 220px;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) minmax(130px, 31%);
+      background: var(--panel);
+      border-right: 1px solid var(--border-soft);
+    }
+
+    .sidebar-header {
+      padding: 10px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 9px;
+      color: #cdd9e5;
+      font-size: 12px;
+      font-weight: 750;
+      letter-spacing: .055em;
+      text-transform: uppercase;
+    }
+
+    .search-box {
+      width: 100%;
+      height: 31px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      outline: none;
+      padding: 0 10px;
+      color: var(--text);
+      background: #08131e;
+    }
+    .search-box:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(84,168,255,.10); }
+
+    .tree {
+      min-height: 0;
+      overflow: auto;
+      padding: 8px 6px 18px;
+      scrollbar-color: #294057 transparent;
+    }
+
+    .tree-row {
+      display: flex;
+      align-items: center;
+      min-height: 27px;
+      gap: 5px;
+      padding: 3px 7px;
+      border-radius: 6px;
+      color: #c6d2df;
+      font-size: 12.5px;
+      cursor: default;
+      user-select: none;
+    }
+    .tree-row:hover { background: #142333; }
+    .tree-row.selected { background: rgba(84,168,255,.15); color: #fff; outline: 1px solid rgba(84,168,255,.23); }
+    .tree-row.filtered-out { display: none; }
+
+    .tree-indent-1 { padding-left: 20px; }
+    .tree-indent-2 { padding-left: 35px; }
+    .tree-indent-3 { padding-left: 50px; }
+    .tree-indent-4 { padding-left: 65px; }
+
+    .tree-arrow { width: 12px; color: #73889d; text-align: center; font-size: 9px; }
+    .tree-icon { width: 17px; text-align: center; color: var(--accent-2); }
+    .tree-icon.schema { color: #d09aff; }
+    .tree-icon.table { color: #6ed8b2; }
+    .tree-icon.view { color: #69b9ff; }
+    .tree-icon.sequence { color: #ffbf69; }
+    .tree-icon.function { color: #f591c4; }
+    .tree-name { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .tree-count { margin-left: auto; color: #62788e; font-size: 11px; }
+    .tree-record-count {
+      margin-left: auto;
+      color: #8295a8;
+      font-size: 11px;
+      font-style: italic;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .empty-tree {
+      padding: 18px 12px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .details {
+      min-height: 0;
+      overflow: auto;
+      border-top: 1px solid var(--border);
+      background: #0a141f;
+    }
+
+    .details-header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      padding: 9px 11px;
+      border-bottom: 1px solid var(--border-soft);
+      background: #0d1823;
+      color: #cdd9e5;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .details-content { padding: 9px 10px 16px; color: var(--muted); font-size: 12px; }
+    .detail-object { color: #f1f6fb; font-weight: 700; margin-bottom: 8px; overflow-wrap: anywhere; }
+    .detail-table { width: 100%; border-collapse: collapse; }
+    .detail-table th, .detail-table td { border-bottom: 1px solid #17283a; padding: 5px 4px; text-align: left; vertical-align: top; }
+    .detail-table th { color: #7f94aa; font-size: 10px; text-transform: uppercase; }
+    .detail-table td { color: #b7c5d3; overflow-wrap: anywhere; }
+    .tag { display: inline-flex; padding: 1px 5px; border-radius: 4px; background: #192a3c; color: #9ec7ef; font-size: 10px; }
+
+    .splitter { background: #09131d; position: relative; z-index: 4; }
+    .splitter::after { content: ""; position: absolute; inset: 0; background: transparent; transition: background .15s; }
+    .splitter:hover::after, .splitter.dragging::after { background: var(--accent-2); opacity: .48; }
+    .splitter-v { cursor: col-resize; border-right: 1px solid #132235; }
+    .splitter-h { cursor: row-resize; border-bottom: 1px solid #132235; }
+
+    .workspace {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: var(--editor-height) 5px minmax(0, 1fr);
+      background: var(--bg);
+    }
+
+    .editor-panel, .results-panel { min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+
+    .panel-toolbar {
+      min-height: 41px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 9px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel-2);
+    }
+
+    .query-tabs {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      min-width: 0;
+      flex: 1 1 auto;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: thin;
+    }
+
+    .query-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      height: 30px;
+      min-width: 145px;
+      max-width: 260px;
+      padding: 0 6px 0 10px;
+      border: 1px solid transparent;
+      border-radius: 6px 6px 2px 2px;
+      background: transparent;
+      color: #8296aa;
+      font-size: 12px;
+      cursor: pointer;
+      flex: 0 0 auto;
+    }
+    .query-tab:hover { background: #142334; color: #dce7f1; }
+    .query-tab.active {
+      border-color: var(--border);
+      border-bottom-color: var(--accent);
+      background: #0d1925;
+      color: #f0f5fa;
+    }
+    .query-tab-dot { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: #60778d; }
+    .query-tab.active .query-tab-dot { background: var(--accent); }
+    .query-tab-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+    .query-tab-close {
+      width: 20px;
+      height: 20px;
+      display: grid;
+      place-items: center;
+      border-radius: 4px;
+      background: transparent;
+      color: #6d8194;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+    }
+    .query-tab-close:hover { background: rgba(255,102,122,.14); color: #ff91a2; }
+
+    .toolbar-hint { color: #647b91; font-size: 11px; margin-left: 3px; }
+
+    #editorHost { min-height: 0; flex: 1; overflow: hidden; }
+    .CodeMirror {
+      height: 100%;
+      font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.55;
+      background: #08121c !important;
+    }
+    .CodeMirror-gutters { background: #0a1520 !important; border-right-color: #1b2b3d !important; }
+    .CodeMirror-linenumber { color: #526980 !important; }
+    .CodeMirror-selected { background: rgba(84,168,255,.20) !important; }
+    .CodeMirror-dialog {
+      border-color: var(--border) !important;
+      background: #0d1824 !important;
+      color: var(--text) !important;
+      box-shadow: 0 10px 28px rgba(0,0,0,.32);
+    }
+    .CodeMirror-dialog input {
+      color: var(--text) !important;
+      background: #08131e !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 5px;
+      padding: 4px 7px !important;
+      outline: none;
+    }
+    .CodeMirror-search-match { background: rgba(255,200,87,.55); }
+
+    .results-toolbar {
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 9px;
+      border-bottom: 1px solid var(--border);
+      background: #101c29;
+    }
+
+    .result-tabs {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      min-width: 0;
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+
+    .result-tab {
+      height: 28px;
+      padding: 0 10px;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      background: transparent;
+      color: #8094a8;
+      cursor: pointer;
+      white-space: nowrap;
+      font-size: 12px;
+    }
+    .result-tab:hover { background: #172638; color: #d8e4ef; }
+    .result-tab.active { border-color: #29435d; background: #172638; color: #fff; }
+
+    .result-meta { color: #7e92a7; font-size: 11px; white-space: nowrap; }
+
+    .results-body {
+      position: relative;
+      min-height: 0;
+      flex: 1;
+      overflow: auto;
+      background: #07111a;
+      scrollbar-color: #294057 transparent;
+    }
+
+    .welcome {
+      width: min(720px, calc(100% - 48px));
+      margin: 44px auto;
+      padding: 28px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: linear-gradient(145deg, rgba(20,36,51,.95), rgba(8,18,28,.95));
+      box-shadow: var(--shadow);
+    }
+    .welcome-kicker { color: var(--accent); font-weight: 750; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+    .welcome h2 { margin: 8px 0 8px; font-size: 24px; letter-spacing: -.03em; }
+    .welcome p { color: #9bacc0; line-height: 1.6; margin: 0 0 15px; }
+    .welcome-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+    .welcome-card { border: 1px solid #23384d; border-radius: 8px; padding: 11px; color: #afbdcb; font-size: 12px; background: #0d1a27; }
+    .welcome-card strong { display: block; color: #eef4fa; margin-bottom: 4px; }
+
+    .data-table {
+      border-collapse: separate;
+      border-spacing: 0;
+      min-width: 100%;
+      width: max-content;
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .data-table th, .data-table td {
+      max-width: 560px;
+      min-width: 90px;
+      padding: 7px 10px;
+      border-right: 1px solid #17283a;
+      border-bottom: 1px solid #17283a;
+      text-align: left;
+      vertical-align: top;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .data-table th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: #132131;
+      color: #dbe6f1;
+      font-family: Inter, ui-sans-serif, sans-serif;
+      font-weight: 650;
+      box-shadow: inset 0 -1px #30475f;
+    }
+
+    .data-table tbody tr:nth-child(even) td { background: rgba(15,29,42,.42); }
+    .data-table tbody tr:hover td { background: rgba(84,168,255,.085); }
+    .data-table tbody tr.row-actionable { cursor: context-menu; }
+    .data-table tbody tr.row-actionable:hover td { box-shadow: inset 0 0 0 9999px rgba(84,168,255,.035); }
+    .data-table .row-number { position: sticky; left: 0; z-index: 2; min-width: 48px; width: 48px; color: #5e748a; background: #0b1722 !important; text-align: right; user-select: none; }
+    .data-table th.row-number { z-index: 4; }
+    .data-table .row-actions-col {
+      min-width: 44px;
+      width: 44px;
+      max-width: 44px;
+      padding: 3px 5px;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .row-actions-btn {
+      width: 28px;
+      height: 26px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: transparent;
+      color: #7f95aa;
+      cursor: pointer;
+      font-size: 17px;
+      line-height: 1;
+    }
+    .row-actions-btn:hover, .row-actions-btn:focus-visible {
+      border-color: #34516d;
+      background: #17283a;
+      color: #dbe6f1;
+      outline: none;
+    }
+
+    .null-value { color: #71879b; font-style: italic; }
+    .bool-value { color: #e6a6ff; }
+    .number-value { color: #8fd6ff; }
+    .json-value { color: #a8df9d; }
+
+    .message-panel {
+      padding: 28px;
+      color: #aebdcb;
+      line-height: 1.6;
+    }
+    .message-panel.success { color: #a7e7c2; }
+    .message-panel.error { color: #ffacb8; }
+    .message-title { margin-bottom: 7px; color: #eef4fa; font-weight: 750; }
+    .error-box {
+      margin-top: 10px;
+      padding: 13px;
+      border: 1px solid rgba(255,102,122,.35);
+      border-radius: 8px;
+      background: rgba(255,102,122,.075);
+      color: #ffc3cc;
+      font-family: "Cascadia Code", Consolas, monospace;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(3,10,16,.68);
+      backdrop-filter: blur(3px);
+    }
+    .loading-overlay.visible { display: flex; }
+    .loader-card { display: flex; align-items: center; gap: 12px; padding: 15px 18px; border: 1px solid #294158; border-radius: 10px; background: #0e1b28; box-shadow: var(--shadow); color: #c9d5e1; }
+    .spinner { width: 18px; height: 18px; border: 2px solid #31506b; border-top-color: var(--accent); border-radius: 50%; animation: spin .75s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .footerbar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 10px;
+      border-top: 1px solid var(--border);
+      background: #071019;
+      color: #71869b;
+      font-size: 11px;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .footerbar .right { margin-left: auto; }
+    .footer-accent { color: #78cdb5; }
+
+
+    .context-menu {
+      position: fixed;
+      z-index: 1000;
+      display: none;
+      min-width: 245px;
+      max-width: 340px;
+      padding: 6px;
+      border: 1px solid #304861;
+      border-radius: 9px;
+      background: rgba(13,24,35,.98);
+      box-shadow: 0 18px 48px rgba(0,0,0,.48);
+      backdrop-filter: blur(14px);
+      color: #dbe6f0;
+      max-height: calc(100vh - 16px);
+      overflow-y: auto;
+    }
+    .context-menu.visible { display: block; }
+    .context-menu-title {
+      padding: 7px 9px 6px;
+      color: #71879c;
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .context-menu-item {
+      width: 100%;
+      min-height: 31px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 5px 9px;
+      border-radius: 6px;
+      background: transparent;
+      color: #d2dde7;
+      cursor: pointer;
+      text-align: left;
+      font-size: 12px;
+    }
+    .context-menu-item:hover:not(:disabled) { background: #1a2c3e; color: #fff; }
+    .context-menu-item.danger { color: #ff9dac; }
+    .context-menu-item.danger .context-menu-icon { color: var(--danger); }
+    .context-menu-item.danger:hover:not(:disabled) { background: rgba(255,102,122,.12); color: #ffd4db; }
+    .context-menu-item:disabled { opacity: .42; cursor: default; }
+    .context-menu-icon { width: 18px; color: var(--accent-2); text-align: center; flex: 0 0 auto; }
+    .context-menu-label { flex: 1; }
+    .context-menu-hint { color: #667c91; font-size: 10px; }
+    .context-menu-separator { height: 1px; margin: 5px 6px; background: #22364a; }
+
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      display: none;
+      place-items: center;
+      padding: 18px;
+      background: rgba(2, 7, 12, .72);
+      backdrop-filter: blur(7px);
+    }
+    .modal-backdrop.visible { display: grid; }
+    .modal-card {
+      width: min(560px, calc(100vw - 28px));
+      max-height: calc(100vh - 36px);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      border: 1px solid #31506c;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #142334, #0d1824);
+      box-shadow: 0 28px 90px rgba(0, 0, 0, .62);
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 15px 17px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-title { flex: 1; font-size: 16px; font-weight: 780; }
+    .modal-close {
+      width: 31px;
+      height: 31px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: #101c29;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .modal-close:hover { color: #fff; border-color: #476785; }
+    .modal-body {
+      overflow: auto;
+      padding: 17px;
+      color: #d8e4ef;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .modal-body p { margin: 0 0 13px; }
+    .modal-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 13px;
+      margin: 15px 0;
+    }
+    .modal-field { display: grid; gap: 6px; }
+    .modal-field label { color: #b8c8d8; font-size: 12px; font-weight: 700; }
+    .modal-input {
+      width: 100%;
+      height: 38px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      outline: none;
+      padding: 0 11px;
+      background: #08131e;
+      color: var(--text);
+    }
+    .modal-input:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(84,168,255,.11); }
+    .modal-help {
+      padding: 11px 12px;
+      border: 1px solid #27445d;
+      border-radius: 9px;
+      background: rgba(29, 64, 89, .22);
+      color: #a9bed0;
+    }
+    .modal-warning {
+      padding: 12px 13px;
+      border: 1px solid rgba(255,102,122,.43);
+      border-radius: 9px;
+      background: rgba(255,102,122,.085);
+      color: #ffc1cb;
+    }
+    .impact-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin: 13px 0;
+    }
+    .impact-stat {
+      padding: 10px;
+      border: 1px solid #294158;
+      border-radius: 8px;
+      background: #0a1621;
+    }
+    .impact-stat strong { display: block; color: #fff; font-size: 17px; }
+    .impact-stat span { color: #8fa5b8; font-size: 11px; }
+    .impact-list {
+      max-height: 190px;
+      overflow: auto;
+      margin: 9px 0 13px;
+      padding: 8px 10px 8px 28px;
+      border: 1px solid #263c51;
+      border-radius: 8px;
+      background: #09141f;
+      color: #bdcbd8;
+    }
+    .impact-list li { margin: 5px 0; }
+    .confirm-check { display: flex; align-items: flex-start; gap: 9px; margin-top: 14px; color: #dce7f0; }
+    .confirm-check input { margin-top: 3px; accent-color: var(--danger); }
+    .modal-error {
+      display: none;
+      margin-top: 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,102,122,.45);
+      border-radius: 8px;
+      background: rgba(255,102,122,.09);
+      color: #ffb0bd;
+      white-space: pre-wrap;
+    }
+    .modal-error.visible { display: block; }
+    .modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 9px;
+      padding: 13px 17px;
+      border-top: 1px solid var(--border);
+      background: rgba(6, 14, 22, .42);
+    }
+    @media (max-width: 620px) {
+      .modal-form-grid { grid-template-columns: 1fr; }
+    }
+
+    .session-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 27px;
+      padding: 0 9px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(4, 11, 17, .32);
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .session-badge::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+    .session-badge.open {
+      border-color: rgba(255, 200, 87, .48);
+      color: #ffd978;
+      background: rgba(255, 200, 87, .08);
+    }
+    .session-badge.open::before { background: var(--warning); box-shadow: 0 0 0 4px rgba(255,200,87,.10); }
+    .session-badge.rolledback {
+      border-color: rgba(255, 102, 122, .42);
+      color: #ff9cad;
+      background: rgba(255, 102, 122, .07);
+    }
+    .session-badge.rolledback::before { background: var(--danger); }
+    .query-tab.transaction-open .query-tab-dot {
+      background: var(--warning);
+      box-shadow: 0 0 0 4px rgba(255, 200, 87, .10);
+      animation: transactionPulse 1.5s ease-in-out infinite;
+    }
+    .query-tab.transaction-rolledback .query-tab-dot { background: var(--danger); }
+    @keyframes transactionPulse { 50% { opacity: .45; } }
+
+    html[data-theme="light"] {
+      color-scheme: light;
+      --bg: #edf2f7;
+      --panel: #ffffff;
+      --panel-2: #f7f9fc;
+      --panel-3: #edf3f8;
+      --border: #c9d4df;
+      --border-soft: #dce4ec;
+      --text: #152232;
+      --muted: #607387;
+      --accent: #008a68;
+      --accent-2: #1779cf;
+      --danger: #c7374d;
+      --warning: #a96d00;
+      --success: #16834d;
+      --shadow: 0 16px 40px rgba(31, 50, 70, .14);
+    }
+    html[data-theme="light"] body,
+    html[data-theme="light"] .app,
+    html[data-theme="light"] .workspace { background: var(--bg); color: var(--text); }
+    html[data-theme="light"] .app { background: radial-gradient(circle at 70% -15%, rgba(0,138,104,.08), transparent 28%), var(--bg); }
+    html[data-theme="light"] .topbar,
+    html[data-theme="light"] .sidebar,
+    html[data-theme="light"] .panel-toolbar,
+    html[data-theme="light"] .results-toolbar,
+    html[data-theme="light"] .footerbar,
+    html[data-theme="light"] .details,
+    html[data-theme="light"] .modal-card,
+    html[data-theme="light"] .modal-header,
+    html[data-theme="light"] .modal-footer { background: var(--panel); color: var(--text); }
+    html[data-theme="light"] .panel-toolbar,
+    html[data-theme="light"] .results-toolbar { background: var(--panel-2); }
+    html[data-theme="light"] .results-body { background: #f8fafc; }
+    html[data-theme="light"] .btn { background: linear-gradient(180deg, #ffffff, #edf3f8); color: #24364a; }
+    html[data-theme="light"] .btn:hover:not(:disabled) { background: #e7eef5; border-color: #91a6ba; }
+    html[data-theme="light"] .btn.primary { background: linear-gradient(180deg, #16b98d, #079875); color: #fff; }
+    html[data-theme="light"] .search-box,
+    html[data-theme="light"] .modal-input,
+    html[data-theme="light"] .CodeMirror-dialog input { background: #fff !important; color: var(--text) !important; }
+    html[data-theme="light"] .CodeMirror { background: #ffffff !important; color: #1c2b3a; }
+    html[data-theme="light"] .CodeMirror-gutters { background: #f2f5f8 !important; border-right-color: #d5dee7 !important; }
+    html[data-theme="light"] .CodeMirror-linenumber { color: #8191a0 !important; }
+    html[data-theme="light"] .CodeMirror-dialog { background: #fff !important; color: var(--text) !important; }
+    html[data-theme="light"] .query-tab:hover,
+    html[data-theme="light"] .query-tab.active,
+    html[data-theme="light"] .result-tab:hover,
+    html[data-theme="light"] .result-tab.active { background: #e7eef5; color: #152232; }
+    html[data-theme="light"] .welcome { background: linear-gradient(145deg, #ffffff, #f2f6fa); }
+    html[data-theme="light"] .welcome h2,
+    html[data-theme="light"] .welcome-card strong,
+    html[data-theme="light"] .detail-object { color: #182839; }
+    html[data-theme="light"] .welcome p,
+    html[data-theme="light"] .welcome-card,
+    html[data-theme="light"] .details-content,
+    html[data-theme="light"] .detail-table td { color: #586d82; }
+    html[data-theme="light"] .welcome-card,
+    html[data-theme="light"] .tag,
+    html[data-theme="light"] .modal-help { background: #eef4f8; }
+    html[data-theme="light"] .data-table th { background: #edf3f8; color: #43586d; }
+    html[data-theme="light"] .data-table td { background: #fff; color: #25384b; border-color: #d9e2ea; }
+    html[data-theme="light"] .data-table tr:hover td { background: #edf6ff; }
+    html[data-theme="light"] .row-actions-btn:hover,
+    html[data-theme="light"] .row-actions-btn:focus-visible { background: #e6eef6; border-color: #c4d3e1; color: #263b50; }
+    html[data-theme="light"] .context-menu { background: #fff; color: var(--text); box-shadow: 0 18px 45px rgba(31,50,70,.18); }
+    html[data-theme="light"] .context-menu-item:hover { background: #edf3f8; }
+    html[data-theme="light"] .splitter { background: #dbe4ec; }
+    html[data-theme="light"] .status-pill,
+    html[data-theme="light"] .session-badge { background: rgba(255,255,255,.7); }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 900px) {
+      :root { --sidebar-width: 245px; }
+      .brand { min-width: 190px; }
+      .top-actions .optional { display: none; }
+      .welcome-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">PG</div>
+        <div>
+          <div class="brand-title">PGlite Studio <span class="brand-version">v2.5.3</span></div>
+          <div class="brand-subtitle">PostgreSQL local · WebAssembly</div>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <button class="btn" id="newQueryBtn" title="Créer un nouvel onglet de requête">＋ Nouvelle requête</button>
+        <button class="btn optional" id="demoBtn" title="Créer un exemple isolé dans le schéma studio_demo">◈ Exemple guidé</button>
+        <button class="btn optional" id="importSqlBtn" title="Charger un fichier .sql dans l'éditeur">⇧ Importer SQL</button>
+        <button class="btn optional" id="exportSqlBtn" title="Exporter un dump SQL PostgreSQL">⇩ Dump SQL</button>
+        <button class="btn optional" id="exportDbBtn" title="Télécharger l'archive binaire du répertoire PGlite">Archive DB</button>
+        <button class="btn danger optional" id="resetDbBtn" title="Supprimer les schémas et objets utilisateurs">Réinitialiser</button>
+        <button class="btn icon-only" id="themeBtn" title="Basculer entre les modes clair et foncé" aria-label="Changer de thème">☀</button>
+        <input id="sqlFileInput" class="hidden" type="file" accept=".sql,text/plain" />
+        <div class="spacer"></div>
+        <div class="status-pill" title="État du moteur PGlite">
+          <span class="status-dot" id="statusDot"></span>
+          <span class="status-label" id="statusLabel">Initialisation…</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="main" id="mainLayout">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="section-title">
+            <span>Explorateur</span>
+            <button class="btn icon-only compact" id="refreshBtn" title="Actualiser les objets">↻</button>
+          </div>
+          <input class="search-box" id="treeSearch" type="search" placeholder="Filtrer les objets…" autocomplete="off" />
+        </div>
+        <div class="tree" id="tree">
+          <div class="empty-tree">Chargement de PostgreSQL dans le navigateur…</div>
+        </div>
+        <section class="details">
+          <div class="details-header">Détails de l’objet</div>
+          <div class="details-content" id="detailsContent">Sélectionne un objet pour afficher sa structure. Double-clique sur une table pour ouvrir un <code>SELECT</code>, ou utilise le clic droit pour générer des scripts et des données fictives.</div>
+        </section>
+      </aside>
+
+      <div class="splitter splitter-v" id="verticalSplitter" aria-hidden="true"></div>
+
+      <section class="workspace" id="workspace">
+        <section class="editor-panel">
+          <div class="panel-toolbar">
+            <div class="query-tabs" id="queryTabs"></div>
+            <button class="btn primary" id="runBtn" title="Exécuter la sélection ou tout le script (Ctrl+Entrée)">▶ Exécuter</button>
+            <button class="btn compact" id="atomicModeBtn" title="Encapsuler automatiquement chaque exécution sans BEGIN explicite dans une transaction">Atomicité auto</button>
+            <span class="session-badge" id="sessionBadge" title="État transactionnel de l’onglet actif">Session propre</span>
+            <button class="btn compact danger hidden" id="rollbackTabBtn" title="Annuler la transaction ouverte par cet onglet">↶ Rollback</button>
+            <button class="btn" id="selectAllBtn" title="Sélectionner tout le SQL">Tout sélectionner</button>
+            <button class="btn compact" id="findBtn" title="Rechercher dans la requête (Ctrl+F)">⌕ Rechercher</button>
+            <button class="btn compact" id="replaceBtn" title="Rechercher et remplacer (Ctrl+H)">⇄ Remplacer</button>
+            <button class="btn compact" id="addCursorBtn" title="Ajouter un curseur à la ligne suivante (Ctrl+Alt+↓)">＋ Curseur</button>
+            <span class="toolbar-hint">Ctrl+Entrée · Ctrl+F · Ctrl+H</span>
+            <div class="spacer"></div>
+            <span class="result-meta" id="editorMeta">0 ligne</span>
+          </div>
+          <div id="editorHost"></div>
+        </section>
+
+        <div class="splitter splitter-h" id="horizontalSplitter" aria-hidden="true"></div>
+
+        <section class="results-panel">
+          <div class="results-toolbar">
+            <div class="result-tabs" id="resultTabs">
+              <button class="result-tab active">Résultats</button>
+            </div>
+            <div class="spacer"></div>
+            <span class="result-meta" id="resultMeta">Aucune exécution</span>
+            <button class="btn compact" id="exportCsvBtn" disabled title="Exporter le résultat actif en CSV">Exporter CSV</button>
+          </div>
+          <div class="results-body" id="resultsBody">
+            <div class="welcome">
+              <div class="welcome-kicker">Tout reste dans ce navigateur</div>
+              <h2>Ton PostgreSQL de poche est prêt à démarrer.</h2>
+              <p>PGlite exécute un véritable moteur PostgreSQL compilé en WebAssembly. Les données sont persistées dans IndexedDB pour ce profil Chrome.</p>
+              <div class="welcome-grid">
+                <div class="welcome-card"><strong>Écrire du SQL</strong>Utilise l’éditeur puis lance avec Ctrl + Entrée.</div>
+                <div class="welcome-card"><strong>Explorer</strong>Les schémas, tables, vues et colonnes apparaissent à gauche.</div>
+                <div class="welcome-card"><strong>Conserver</strong>La base survit aux rechargements de la page dans le même profil.</div>
+              </div>
+            </div>
+            <div class="loading-overlay" id="loadingOverlay"><div class="loader-card"><span class="spinner"></span><span id="loadingText">Exécution en cours…</span></div></div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <div class="context-menu" id="contextMenu" role="menu" aria-hidden="true"></div>
+
+
+    <div class="modal-backdrop" id="modalBackdrop" aria-hidden="true">
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <header class="modal-header">
+          <div class="modal-title" id="modalTitle">Action</div>
+          <button class="modal-close" id="modalCloseBtn" type="button" aria-label="Fermer">×</button>
+        </header>
+        <div class="modal-body" id="modalBody"></div>
+        <footer class="modal-footer">
+          <button class="btn" id="modalCancelBtn" type="button">Annuler</button>
+          <button class="btn primary" id="modalConfirmBtn" type="button">Valider</button>
+        </footer>
+      </section>
+    </div>
+
+    <footer class="footerbar">
+      <span id="footerDb"><span class="footer-accent">●</span> browser_db</span>
+      <span id="footerVersion">PGlite Studio 2.5.3 · moteur via CDN</span>
+      <span>Stockage : IndexedDB</span>
+      <span class="right" id="footerMessage">Initialisation du moteur…</span>
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/sql/sql.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/edit/matchbrackets.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/selection/active-line.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/comment/comment.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/dialog/dialog.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/search/searchcursor.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/search/search.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/scroll/annotatescrollbar.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/search/matchesonscrollbar.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/search/jump-to-line.min.js"></script>
+
+  <script type="module">
+    import { PGlite } from "https://cdn.jsdelivr.net/npm/@electric-sql/pglite@0.5.3/dist/index.js";
+    import { pgDump } from "https://cdn.jsdelivr.net/npm/@electric-sql/pglite-tools@0.4.3/dist/pg_dump.js";
+
+    const LEGACY_STORAGE_KEY = "pglite-studio-query-v1";
+    const TABS_STORAGE_KEY = "pglite-studio-tabs-v2";
+    const ATOMIC_MODE_STORAGE_KEY = "pglite-studio-atomic-mode-v1";
+    const THEME_STORAGE_KEY = "pglite-studio-theme-v1";
+    const DB_PATH = "idb://pglite-studio-browser-db";
+    const MAX_RENDERED_ROWS = 1000;
+
+    const state = {
+      db: null,
+      rawDb: null,
+      editor: null,
+      tabs: [],
+      activeTabId: null,
+      queryCounter: 0,
+      suppressEditorChange: false,
+      results: [],
+      activeResult: 0,
+      selectedTreeRow: null,
+      databaseName: "browser_db",
+      version: "",
+      running: false,
+      transactionOwnerTabId: null,
+      sessionGuardRunning: false,
+      atomicMode: localStorage.getItem(ATOMIC_MODE_STORAGE_KEY) !== "false",
+      theme: localStorage.getItem(THEME_STORAGE_KEY) === "light" ? "light" : "dark",
+      faker: null,
+      fakerSource: "non chargé",
+      fakerLoadError: null,
+      modalConfirmAction: null,
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const elements = {
+      statusDot: $("statusDot"),
+      statusLabel: $("statusLabel"),
+      footerMessage: $("footerMessage"),
+      footerDb: $("footerDb"),
+      footerVersion: $("footerVersion"),
+      tree: $("tree"),
+      treeSearch: $("treeSearch"),
+      details: $("detailsContent"),
+      runBtn: $("runBtn"),
+      refreshBtn: $("refreshBtn"),
+      newQueryBtn: $("newQueryBtn"),
+      demoBtn: $("demoBtn"),
+      importSqlBtn: $("importSqlBtn"),
+      exportSqlBtn: $("exportSqlBtn"),
+      exportDbBtn: $("exportDbBtn"),
+      resetDbBtn: $("resetDbBtn"),
+      themeBtn: $("themeBtn"),
+      atomicModeBtn: $("atomicModeBtn"),
+      sessionBadge: $("sessionBadge"),
+      rollbackTabBtn: $("rollbackTabBtn"),
+      sqlFileInput: $("sqlFileInput"),
+      selectAllBtn: $("selectAllBtn"),
+      findBtn: $("findBtn"),
+      replaceBtn: $("replaceBtn"),
+      addCursorBtn: $("addCursorBtn"),
+      queryTabs: $("queryTabs"),
+      resultTabs: $("resultTabs"),
+      resultMeta: $("resultMeta"),
+      editorMeta: $("editorMeta"),
+      resultsBody: $("resultsBody"),
+      loadingOverlay: $("loadingOverlay"),
+      loadingText: $("loadingText"),
+      exportCsvBtn: $("exportCsvBtn"),
+      mainLayout: $("mainLayout"),
+      workspace: $("workspace"),
+      verticalSplitter: $("verticalSplitter"),
+      horizontalSplitter: $("horizontalSplitter"),
+      contextMenu: $("contextMenu"),
+      modalBackdrop: $("modalBackdrop"),
+      modalTitle: $("modalTitle"),
+      modalBody: $("modalBody"),
+      modalCloseBtn: $("modalCloseBtn"),
+      modalCancelBtn: $("modalCancelBtn"),
+      modalConfirmBtn: $("modalConfirmBtn"),
+    };
+
+    function setStatus(kind, label, footer = label) {
+      elements.statusDot.className = `status-dot${kind ? ` ${kind}` : ""}`;
+      elements.statusLabel.textContent = label;
+      elements.footerMessage.textContent = footer;
+    }
+
+    function setBusy(isBusy, text = "Exécution en cours…") {
+      state.running = isBusy;
+      elements.runBtn.disabled = isBusy;
+      elements.refreshBtn.disabled = isBusy;
+      elements.demoBtn.disabled = isBusy;
+      elements.resetDbBtn.disabled = isBusy;
+      elements.exportSqlBtn.disabled = isBusy;
+      elements.exportDbBtn.disabled = isBusy;
+      elements.loadingText.textContent = text;
+      elements.loadingOverlay.classList.toggle("visible", isBusy);
+    }
+
+    function applyTheme(theme = state.theme) {
+      state.theme = theme === "light" ? "light" : "dark";
+      document.documentElement.dataset.theme = state.theme;
+      localStorage.setItem(THEME_STORAGE_KEY, state.theme);
+      if (elements.themeBtn) {
+        elements.themeBtn.textContent = state.theme === "light" ? "☾" : "☀";
+        elements.themeBtn.title = state.theme === "light" ? "Passer en mode foncé" : "Passer en mode clair";
+      }
+      if (state.editor) {
+        state.editor.setOption("theme", state.theme === "light" ? "default" : "material-darker");
+        state.editor.refresh();
+      }
+    }
+
+    function updateAtomicModeUi() {
+      if (!elements.atomicModeBtn) return;
+      elements.atomicModeBtn.textContent = state.atomicMode ? "Atomicité auto : ON" : "Atomicité auto : OFF";
+      elements.atomicModeBtn.classList.toggle("danger", !state.atomicMode);
+      elements.atomicModeBtn.title = state.atomicMode
+        ? "Chaque exécution sans BEGIN explicite est atomique et automatiquement rollbackée en cas d’erreur"
+        : "Mode non atomique : les instructions précédant une erreur peuvent déjà être validées";
+    }
+
+    function updateTransactionUi() {
+      const tab = activeTab();
+      if (!tab || !elements.sessionBadge) return;
+      const ownsTransaction = state.transactionOwnerTabId === tab.id && tab.transactionState === "open";
+      elements.sessionBadge.className = "session-badge";
+      elements.rollbackTabBtn.classList.toggle("hidden", !ownsTransaction);
+      if (ownsTransaction) {
+        elements.sessionBadge.classList.add("open");
+        elements.sessionBadge.textContent = "Transaction ouverte";
+        elements.sessionBadge.title = "Cette transaction appartient à cet onglet. Toute requête lancée depuis un autre onglet provoquera d’abord son rollback.";
+      } else if (tab.transactionState === "rolledback") {
+        elements.sessionBadge.classList.add("rolledback");
+        elements.sessionBadge.textContent = "Rollback automatique";
+        elements.sessionBadge.title = tab.transactionMessage || "La dernière transaction de cet onglet a été annulée automatiquement.";
+      } else {
+        elements.sessionBadge.textContent = "Session propre";
+        elements.sessionBadge.title = "Aucune transaction manuelle n’est ouverte pour cet onglet.";
+      }
+      updateAtomicModeUi();
+    }
+
+    function stripLeadingSqlComments(statement) {
+      let value = String(statement || "");
+      while (true) {
+        const before = value;
+        value = value.replace(/^\s*--[^\n]*(?:\n|$)/, "");
+        value = value.replace(/^\s*\/\*[\s\S]*?\*\//, "");
+        if (value === before) return value.trim();
+      }
+    }
+
+    function splitSqlStatements(sql) {
+      const statements = [];
+      let current = "";
+      let stateName = "normal";
+      let dollarTag = "";
+      let blockDepth = 0;
+      for (let index = 0; index < sql.length; index += 1) {
+        const ch = sql[index];
+        const next = sql[index + 1] || "";
+        current += ch;
+        if (stateName === "single") {
+          if (ch === "'" && next === "'") { current += next; index += 1; continue; }
+          if (ch === "'") stateName = "normal";
+          continue;
+        }
+        if (stateName === "double") {
+          if (ch === '"' && next === '"') { current += next; index += 1; continue; }
+          if (ch === '"') stateName = "normal";
+          continue;
+        }
+        if (stateName === "line") {
+          if (ch === "\n") stateName = "normal";
+          continue;
+        }
+        if (stateName === "block") {
+          if (ch === "/" && next === "*") { current += next; index += 1; blockDepth += 1; continue; }
+          if (ch === "*" && next === "/") {
+            current += next; index += 1; blockDepth -= 1;
+            if (blockDepth <= 0) stateName = "normal";
+          }
+          continue;
+        }
+        if (stateName === "dollar") {
+          if (sql.startsWith(dollarTag, index)) {
+            current += dollarTag.slice(1);
+            index += dollarTag.length - 1;
+            stateName = "normal";
+          }
+          continue;
+        }
+        if (ch === "'") { stateName = "single"; continue; }
+        if (ch === '"') { stateName = "double"; continue; }
+        if (ch === "-" && next === "-") { current += next; index += 1; stateName = "line"; continue; }
+        if (ch === "/" && next === "*") { current += next; index += 1; stateName = "block"; blockDepth = 1; continue; }
+        if (ch === "$") {
+          const match = sql.slice(index).match(/^\$[A-Za-z_][A-Za-z0-9_]*\$|^\$\$/);
+          if (match) {
+            dollarTag = match[0];
+            current += dollarTag.slice(1);
+            index += dollarTag.length - 1;
+            stateName = "dollar";
+            continue;
+          }
+        }
+        if (ch === ";") {
+          if (current.trim()) statements.push(current.trim());
+          current = "";
+        }
+      }
+      if (current.trim()) statements.push(current.trim());
+      return statements;
+    }
+
+    function analyzeTransactionControl(sql, initiallyOpen = false) {
+      let open = initiallyOpen;
+      let explicit = false;
+      for (const rawStatement of splitSqlStatements(sql)) {
+        const statement = stripLeadingSqlComments(rawStatement).replace(/;\s*$/, "").trim();
+        if (!statement) continue;
+        if (/^(?:BEGIN(?:\s+(?:WORK|TRANSACTION))?|START\s+TRANSACTION)\b/i.test(statement)) {
+          explicit = true;
+          open = true;
+          continue;
+        }
+        if (/^(?:COMMIT|END)(?:\s+(?:WORK|TRANSACTION))?\b/i.test(statement)) {
+          explicit = true;
+          open = /\bAND\s+CHAIN\b/i.test(statement);
+          continue;
+        }
+        if (/^(?:ROLLBACK|ABORT)\b/i.test(statement) && !/^ROLLBACK\s+TO\b/i.test(statement)) {
+          explicit = true;
+          open = /\bAND\s+CHAIN\b/i.test(statement);
+        }
+      }
+      return { explicit, open };
+    }
+
+    async function rollbackPhysicalTransaction(ownerTabId, reason) {
+      const owner = state.tabs.find(tab => tab.id === ownerTabId);
+      try {
+        if (state.rawDb) await state.rawDb.exec("ROLLBACK;");
+      } catch (rollbackError) {
+        console.warn("Rollback de sécurité impossible", rollbackError);
+      }
+      state.transactionOwnerTabId = null;
+      if (owner) {
+        owner.transactionState = "rolledback";
+        owner.transactionMessage = reason || "Transaction annulée automatiquement.";
+      }
+      renderQueryTabs();
+      updateTransactionUi();
+      persistTabs();
+    }
+
+    async function ensureActiveTabIsolation(operation = "cette opération") {
+      if (state.sessionGuardRunning || !state.transactionOwnerTabId) return;
+      const currentTab = activeTab();
+      if (currentTab?.id === state.transactionOwnerTabId) return;
+      const owner = state.tabs.find(tab => tab.id === state.transactionOwnerTabId);
+      state.sessionGuardRunning = true;
+      try {
+        await rollbackPhysicalTransaction(
+          state.transactionOwnerTabId,
+          `Rollback automatique : ${operation} a été lancée depuis l’onglet « ${currentTab?.title || "actif"} », alors que la transaction appartenait à « ${owner?.title || "un autre onglet"} ».`
+        );
+        setStatus("ready", "Isolation rétablie", `Transaction de « ${owner?.title || "l’autre onglet"} » annulée avant ${operation}`);
+      } finally {
+        state.sessionGuardRunning = false;
+      }
+    }
+
+    function createGuardedDatabase(rawDb) {
+      const guarded = new Set(["query", "exec", "transaction", "execProtocol", "execProtocolRaw", "execProtocolRawStream", "dumpDataDir", "copyToFS", "describeQuery"]);
+      return new Proxy(rawDb, {
+        get(target, property, receiver) {
+          const value = Reflect.get(target, property, receiver);
+          if (typeof value !== "function") return value;
+          if (!guarded.has(String(property))) return value.bind(target);
+          return async (...args) => {
+            await ensureActiveTabIsolation(`de ${String(property)}`);
+            return value.apply(target, args);
+          };
+        },
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function quoteIdent(value) {
+      return `"${String(value).replaceAll('"', '""')}"`;
+    }
+
+    function qualify(schema, objectName) {
+      return `${quoteIdent(schema)}.${quoteIdent(objectName)}`;
+    }
+
+    function friendlyError(error) {
+      const parts = [];
+      if (error?.message) parts.push(error.message);
+      if (error?.detail) parts.push(`Détail : ${error.detail}`);
+      if (error?.hint) parts.push(`Conseil : ${error.hint}`);
+      if (error?.position) parts.push(`Position : ${error.position}`);
+      return parts.join("\n") || String(error);
+    }
+
+
+    function showModal({ title, bodyHtml, confirmLabel = "Valider", cancelLabel = "Annuler", danger = false, onConfirm }) {
+      state.modalConfirmAction = onConfirm || null;
+      elements.modalTitle.textContent = title;
+      elements.modalBody.innerHTML = `${bodyHtml}<div class="modal-error" id="modalError"></div>`;
+      elements.modalConfirmBtn.textContent = confirmLabel;
+      elements.modalConfirmBtn.className = danger ? "btn danger-solid" : "btn primary";
+      elements.modalCancelBtn.textContent = cancelLabel;
+      elements.modalConfirmBtn.disabled = false;
+      elements.modalCancelBtn.disabled = false;
+      elements.modalCloseBtn.disabled = false;
+      elements.modalBackdrop.classList.add("visible");
+      elements.modalBackdrop.setAttribute("aria-hidden", "false");
+      requestAnimationFrame(() => elements.modalBody.querySelector("input, select, textarea, button")?.focus());
+    }
+
+    function closeModal() {
+      if (!elements.modalBackdrop.classList.contains("visible")) return;
+      elements.modalBackdrop.classList.remove("visible");
+      elements.modalBackdrop.setAttribute("aria-hidden", "true");
+      elements.modalBody.innerHTML = "";
+      state.modalConfirmAction = null;
+    }
+
+    function setModalError(message = "") {
+      const node = $("modalError");
+      if (!node) return;
+      node.textContent = message;
+      node.classList.toggle("visible", Boolean(message));
+    }
+
+    async function confirmModal() {
+      if (!state.modalConfirmAction) return closeModal();
+      setModalError("");
+      elements.modalConfirmBtn.disabled = true;
+      elements.modalCancelBtn.disabled = true;
+      elements.modalCloseBtn.disabled = true;
+      try {
+        await state.modalConfirmAction();
+      } catch (error) {
+        console.error("Action de fenêtre impossible", error);
+        setModalError(friendlyError(error));
+      } finally {
+        if (elements.modalBackdrop.classList.contains("visible")) {
+          elements.modalConfirmBtn.disabled = false;
+          elements.modalCancelBtn.disabled = false;
+          elements.modalCloseBtn.disabled = false;
+        }
+      }
+    }
+
+    function activeTab() {
+      return state.tabs.find(tab => tab.id === state.activeTabId) || null;
+    }
+
+    function defaultSql() {
+      return `-- PGlite Studio\n-- Écris une requête PostgreSQL puis utilise Ctrl + Entrée.\n\nSELECT\n  current_database() AS database_name,\n  current_user AS database_user,\n  now() AS current_time,\n  version() AS postgres_version;`;
+    }
+
+    function loadTabs() {
+      try {
+        const raw = localStorage.getItem(TABS_STORAGE_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          if (Array.isArray(saved.tabs) && saved.tabs.length) {
+            state.tabs = saved.tabs.map((tab, index) => ({
+              id: String(tab.id || crypto.randomUUID()),
+              title: String(tab.title || `Requête ${index + 1}`),
+              sql: String(tab.sql || ""),
+              results: [],
+              activeResult: 0,
+              duration: 0,
+              transactionState: "idle",
+              transactionMessage: "",
+              sourceTable: tab.sourceTable || null,
+              sourceQuerySql: String(tab.sourceQuerySql || ""),
+              resultSources: [],
+              lastExecutedSql: "",
+            }));
+            state.activeTabId = state.tabs.some(tab => tab.id === saved.activeTabId)
+              ? saved.activeTabId
+              : state.tabs[0].id;
+            state.queryCounter = Math.max(saved.queryCounter || 0, state.tabs.length);
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn("Impossible de restaurer les onglets", error);
+      }
+
+      const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+      const first = {
+        id: crypto.randomUUID(),
+        title: "Requête 1",
+        sql: legacy || defaultSql(),
+        results: [],
+        activeResult: 0,
+        duration: 0,
+        transactionState: "idle",
+        transactionMessage: "",
+        sourceTable: null,
+        sourceQuerySql: "",
+        resultSources: [],
+        lastExecutedSql: "",
+      };
+      state.tabs = [first];
+      state.activeTabId = first.id;
+      state.queryCounter = 1;
+      persistTabs();
+    }
+
+    function persistTabs() {
+      const payload = {
+        activeTabId: state.activeTabId,
+        queryCounter: state.queryCounter,
+        tabs: state.tabs.map(({ id, title, sql, sourceTable, sourceQuerySql }) => ({ id, title, sql, sourceTable, sourceQuerySql })),
+      };
+      localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(payload));
+    }
+
+    function createQueryTab(sql = "-- Nouvelle requête\n\n", title = null, activate = true, metadata = {}) {
+      state.queryCounter += 1;
+      const tab = {
+        id: crypto.randomUUID(),
+        title: title || `Requête ${state.queryCounter}`,
+        sql,
+        results: [],
+        activeResult: 0,
+        duration: 0,
+        transactionState: "idle",
+        transactionMessage: "",
+        sourceTable: metadata.sourceTable || null,
+        sourceQuerySql: metadata.sourceQuerySql || "",
+        resultSources: [],
+        lastExecutedSql: "",
+      };
+      state.tabs.push(tab);
+      if (activate) switchQueryTab(tab.id, false);
+      renderQueryTabs();
+      persistTabs();
+      return tab;
+    }
+
+    function switchQueryTab(tabId, saveCurrent = true) {
+      if (saveCurrent && state.editor) {
+        const current = activeTab();
+        if (current) current.sql = state.editor.getValue();
+      }
+
+      const target = state.tabs.find(tab => tab.id === tabId);
+      if (!target) return;
+      state.activeTabId = target.id;
+      state.results = target.results || [];
+      state.activeResult = target.activeResult || 0;
+
+      if (state.editor) {
+        state.suppressEditorChange = true;
+        state.editor.setValue(target.sql || "");
+        state.suppressEditorChange = false;
+        state.editor.focus();
+        updateEditorMeta();
+      }
+
+      renderQueryTabs();
+      updateTransactionUi();
+      if (state.results.length) {
+        renderResults(target.duration || 0);
+      } else {
+        renderEmptyTab();
+      }
+      persistTabs();
+    }
+
+    async function closeQueryTab(tabId) {
+      const index = state.tabs.findIndex(tab => tab.id === tabId);
+      if (index < 0) return;
+      if (state.transactionOwnerTabId === tabId) {
+        await rollbackPhysicalTransaction(tabId, "Rollback automatique : l’onglet propriétaire de la transaction a été fermé.");
+      }
+      const wasActive = state.activeTabId === tabId;
+      state.tabs.splice(index, 1);
+      if (!state.tabs.length) {
+        createQueryTab("-- Nouvelle requête\n\n", "Requête 1", true);
+        return;
+      }
+      if (wasActive) {
+        const next = state.tabs[Math.min(index, state.tabs.length - 1)];
+        switchQueryTab(next.id, false);
+      } else {
+        renderQueryTabs();
+        persistTabs();
+      }
+    }
+
+    function renameQueryTab(tabId) {
+      const tab = state.tabs.find(item => item.id === tabId);
+      if (!tab) return;
+      const name = prompt("Nom de l’onglet :", tab.title);
+      if (!name?.trim()) return;
+      tab.title = name.trim().slice(0, 80);
+      renderQueryTabs();
+      persistTabs();
+    }
+
+    function renderQueryTabs() {
+      elements.queryTabs.innerHTML = "";
+      for (const tab of state.tabs) {
+        const node = document.createElement("div");
+        const transactionClass = tab.transactionState === "open"
+          ? " transaction-open"
+          : tab.transactionState === "rolledback" ? " transaction-rolledback" : "";
+        node.className = `query-tab${tab.id === state.activeTabId ? " active" : ""}${transactionClass}`;
+        node.title = tab.transactionState === "open"
+          ? `${tab.title} — transaction ouverte dans cet onglet`
+          : tab.transactionMessage || `${tab.title} — double-clic pour renommer`;
+
+        const dot = document.createElement("span");
+        dot.className = "query-tab-dot";
+        node.appendChild(dot);
+
+        const title = document.createElement("span");
+        title.className = "query-tab-title";
+        title.textContent = tab.title;
+        node.appendChild(title);
+
+        const close = document.createElement("button");
+        close.className = "query-tab-close";
+        close.type = "button";
+        close.title = "Fermer l’onglet";
+        close.textContent = "×";
+        close.addEventListener("click", event => {
+          event.stopPropagation();
+          void closeQueryTab(tab.id);
+        });
+        node.appendChild(close);
+
+        node.addEventListener("click", () => switchQueryTab(tab.id));
+        node.addEventListener("dblclick", event => {
+          event.preventDefault();
+          renameQueryTab(tab.id);
+        });
+        node.addEventListener("contextmenu", event => {
+          showContextMenu(event, [
+            { icon: "✎", label: "Renommer l’onglet", action: () => renameQueryTab(tab.id) },
+            { icon: "⧉", label: "Dupliquer l’onglet", action: () => createQueryTab(tab.sql, `${tab.title} — copie`, true, { sourceTable: tab.sourceTable, sourceQuerySql: tab.sourceQuerySql }) },
+            { separator: true },
+            ...(tab.transactionState === "open" ? [{ icon: "↶", label: "Rollback de la transaction", action: () => rollbackPhysicalTransaction(tab.id, "Rollback manuel demandé depuis le menu de l’onglet.") }, { separator: true }] : []),
+            { icon: "×", label: "Fermer l’onglet", action: () => closeQueryTab(tab.id) },
+          ], tab.title);
+        });
+        elements.queryTabs.appendChild(node);
+      }
+      requestAnimationFrame(() => elements.queryTabs.querySelector(".query-tab.active")?.scrollIntoView({ inline: "nearest", block: "nearest" }));
+    }
+
+    function openSqlInNewTab(sql, title, metadata = {}) {
+      const tab = createQueryTab(sql, title, true, metadata);
+      tab.sql = sql;
+      state.editor.focus();
+      return tab;
+    }
+
+    async function openSelectAndRun(schema, objectName, type = "table") {
+      const sql = generateSelectScript(schema, objectName);
+      openSqlInNewTab(sql, `SELECT ${objectName}`, {
+        sourceTable: { schema, table: objectName, type },
+        sourceQuerySql: sql,
+      });
+      await runSql();
+    }
+
+    function updateEditorMeta() {
+      const count = state.editor.lineCount();
+      const selections = state.editor.listSelections();
+      const selectedCharacters = selections.reduce((total, range) => {
+        const anchorBeforeHead = range.anchor.line < range.head.line
+          || (range.anchor.line === range.head.line && range.anchor.ch <= range.head.ch);
+        const from = anchorBeforeHead ? range.anchor : range.head;
+        const to = anchorBeforeHead ? range.head : range.anchor;
+        return total + state.editor.getRange(from, to).length;
+      }, 0);
+      const cursorInfo = selections.length > 1 ? ` · ${selections.length} curseurs` : "";
+      elements.editorMeta.textContent = selectedCharacters
+        ? `${selectedCharacters.toLocaleString("fr-FR")} caractère(s) sélectionné(s)${cursorInfo}`
+        : `${count.toLocaleString("fr-FR")} ligne(s)${cursorInfo}`;
+    }
+
+    function addCursorVertical(cm, direction = 1) {
+      const currentSelections = cm.listSelections();
+      const existing = new Set(currentSelections.map(range => `${range.head.line}:${range.head.ch}`));
+      const additions = [];
+      for (const range of currentSelections) {
+        const line = Math.max(0, Math.min(cm.lineCount() - 1, range.head.line + direction));
+        const ch = Math.min(range.head.ch, cm.getLine(line).length);
+        const key = `${line}:${ch}`;
+        if (!existing.has(key)) {
+          additions.push({ line, ch });
+          existing.add(key);
+        }
+      }
+      additions.forEach(position => cm.addSelection(position, position));
+      cm.focus();
+      updateEditorMeta();
+    }
+
+    function initEditor() {
+      loadTabs();
+      const initial = activeTab()?.sql || defaultSql();
+      state.editor = CodeMirror($("editorHost"), {
+        value: initial,
+        mode: "text/x-pgsql",
+        theme: state.theme === "light" ? "default" : "material-darker",
+        lineNumbers: true,
+        lineWrapping: false,
+        matchBrackets: true,
+        styleActiveLine: true,
+        indentUnit: 2,
+        tabSize: 2,
+        indentWithTabs: false,
+        autofocus: true,
+        extraKeys: {
+          "Ctrl-Enter": runSql,
+          "Cmd-Enter": runSql,
+          "Ctrl-/": "toggleComment",
+          "Cmd-/": "toggleComment",
+          "Ctrl-F": "findPersistent",
+          "Cmd-F": "findPersistent",
+          "Ctrl-H": "replace",
+          "Shift-Ctrl-F": "replace",
+          "Cmd-Alt-F": "replace",
+          "Ctrl-G": "findNext",
+          "Shift-Ctrl-G": "findPrev",
+          "Ctrl-Alt-Down": cm => addCursorVertical(cm, 1),
+          "Ctrl-Alt-Up": cm => addCursorVertical(cm, -1),
+          "Shift-Alt-Down": cm => addCursorVertical(cm, 1),
+          "Shift-Alt-Up": cm => addCursorVertical(cm, -1),
+          "Ctrl-T": () => createQueryTab(),
+          "Cmd-T": () => createQueryTab(),
+        },
+      });
+
+      state.editor.on("change", () => {
+        if (!state.suppressEditorChange) {
+          const tab = activeTab();
+          if (tab) tab.sql = state.editor.getValue();
+          persistTabs();
+        }
+        updateEditorMeta();
+      });
+      state.editor.on("cursorActivity", updateEditorMeta);
+
+      // Chrome réserve normalement Ctrl+H à l’historique. On l’intercepte lorsque l’éditeur a le focus.
+      state.editor.getWrapperElement().addEventListener("keydown", event => {
+        if (!event.ctrlKey || event.shiftKey || event.altKey) return;
+        const key = String(event.key).toLowerCase();
+        if (key === "f" || key === "h") {
+          event.preventDefault();
+          event.stopPropagation();
+          if (key === "f") CodeMirror.commands.findPersistent(state.editor);
+          if (key === "h") CodeMirror.commands.replace(state.editor);
+        }
+      }, true);
+
+      renderQueryTabs();
+      updateEditorMeta();
+      updateTransactionUi();
+      updateAtomicModeUi();
+    }
+
+    async function initDatabase() {
+      try {
+        setStatus("", "Chargement du moteur…", "Téléchargement et initialisation de PGlite…");
+        setBusy(true, "Initialisation de PostgreSQL WebAssembly…");
+
+        state.rawDb = new PGlite(DB_PATH);
+        await state.rawDb.waitReady;
+        state.db = createGuardedDatabase(state.rawDb);
+
+        const info = await state.db.query(`
+          SELECT current_database() AS database_name,
+                 current_user AS database_user,
+                 current_setting('server_version') AS server_version;
+        `);
+        const row = info.rows[0] || {};
+        state.databaseName = row.database_name || "postgres";
+        state.version = row.server_version || "";
+
+        elements.footerDb.innerHTML = `<span class="footer-accent">●</span> ${escapeHtml(state.databaseName)}`;
+        elements.footerVersion.textContent = `PostgreSQL ${state.version} · PGlite 0.5.3`;
+        await refreshExplorer();
+
+        setStatus("ready", "Base locale prête", "Moteur prêt — données conservées dans IndexedDB");
+      } catch (error) {
+        console.error(error);
+        setStatus("error", "Échec d’initialisation", "Impossible de démarrer PGlite");
+        elements.tree.innerHTML = `<div class="empty-tree">Impossible de démarrer PGlite.<br><br>${escapeHtml(friendlyError(error))}</div>`;
+        renderError(error, true);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function refreshExplorer() {
+      if (!state.db) return;
+      elements.refreshBtn.disabled = true;
+      try {
+        const schemasResult = await state.db.query(`
+          SELECT nspname AS schema_name
+          FROM pg_namespace
+          WHERE nspname NOT LIKE 'pg\\_%' ESCAPE '\\'
+            AND nspname <> 'information_schema'
+          ORDER BY nspname;
+        `);
+
+        const objectsResult = await state.db.query(`
+          SELECT n.nspname AS schema_name,
+                 c.relname AS object_name,
+                 CASE c.relkind
+                   WHEN 'r' THEN 'table'
+                   WHEN 'p' THEN 'table'
+                   WHEN 'v' THEN 'view'
+                   WHEN 'm' THEN 'materialized_view'
+                   WHEN 'S' THEN 'sequence'
+                 END AS object_type
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE c.relkind IN ('r', 'p', 'v', 'm', 'S')
+            AND n.nspname !~ '^pg_'
+            AND n.nspname <> 'information_schema'
+          UNION ALL
+          SELECT n.nspname,
+                 p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')',
+                 CASE WHEN p.prokind = 'p' THEN 'procedure' ELSE 'function' END
+          FROM pg_proc p
+          JOIN pg_namespace n ON n.oid = p.pronamespace
+          WHERE n.nspname NOT LIKE 'pg\\_%' ESCAPE '\\'
+            AND n.nspname <> 'information_schema'
+            AND p.prokind IN ('f', 'p')
+          UNION ALL
+          SELECT n.nspname,
+                 t.typname,
+                 CASE t.typtype WHEN 'e' THEN 'enum' WHEN 'd' THEN 'domain' END
+          FROM pg_type t
+          JOIN pg_namespace n ON n.oid = t.typnamespace
+          WHERE t.typtype IN ('e', 'd')
+            AND n.nspname NOT LIKE 'pg\\_%' ESCAPE '\\'
+            AND n.nspname <> 'information_schema'
+          ORDER BY 1, 3, 2;
+        `);
+
+        const objects = objectsResult.rows;
+        const tables = objects.filter(object => object.object_type === "table");
+        if (tables.length) {
+          const countSql = tables.map(object => `
+            SELECT ${sqlString(object.schema_name)}::text AS schema_name,
+                   ${sqlString(object.object_name)}::text AS object_name,
+                   COUNT(*)::bigint AS row_count
+            FROM ${qualify(object.schema_name, object.object_name)}`
+          ).join("\nUNION ALL\n");
+          try {
+            const countsResult = await state.db.query(countSql);
+            const countMap = new Map(countsResult.rows.map(row => [`${row.schema_name}.${row.object_name}`, Number(row.row_count)]));
+            for (const object of tables) {
+              object.row_count = countMap.get(`${object.schema_name}.${object.object_name}`) ?? 0;
+            }
+          } catch (countError) {
+            console.warn("Impossible de compter les lignes des tables", countError);
+            for (const object of tables) object.row_count = null;
+          }
+        }
+
+        renderExplorer(
+          schemasResult.rows.map(row => row.schema_name),
+          objects
+        );
+        applyTreeFilter();
+      } catch (error) {
+        console.error(error);
+        elements.tree.innerHTML = `<div class="empty-tree">Erreur de lecture du catalogue :<br><br>${escapeHtml(friendlyError(error))}</div>`;
+      } finally {
+        elements.refreshBtn.disabled = state.running;
+      }
+    }
+
+    function treeRow({ indent = 0, icon = "", iconClass = "", name, count = "", recordCount = null, searchable = "", onClick, onDoubleClick, onContextMenu }) {
+      const row = document.createElement("div");
+      row.className = `tree-row tree-indent-${indent}`;
+      row.dataset.search = (searchable || name).toLocaleLowerCase("fr");
+
+      const arrow = document.createElement("span");
+      arrow.className = "tree-arrow";
+      arrow.textContent = "";
+      row.appendChild(arrow);
+
+      const iconNode = document.createElement("span");
+      iconNode.className = `tree-icon ${iconClass}`;
+      iconNode.textContent = icon;
+      row.appendChild(iconNode);
+
+      const nameNode = document.createElement("span");
+      nameNode.className = "tree-name";
+      nameNode.textContent = name;
+      nameNode.title = name;
+      row.appendChild(nameNode);
+
+      if (count !== "") {
+        const countNode = document.createElement("span");
+        countNode.className = "tree-count";
+        countNode.textContent = count;
+        row.appendChild(countNode);
+      }
+
+      if (recordCount !== null) {
+        const recordNode = document.createElement("span");
+        recordNode.className = "tree-record-count";
+        recordNode.textContent = recordCount === "—" ? "—" : `${recordCount}`;
+        recordNode.title = recordCount === "—" ? "Comptage indisponible" : `${recordCount} ligne(s)`;
+        row.appendChild(recordNode);
+      }
+
+      if (onClick) row.addEventListener("click", () => {
+        if (state.selectedTreeRow) state.selectedTreeRow.classList.remove("selected");
+        state.selectedTreeRow = row;
+        row.classList.add("selected");
+        onClick();
+      });
+      if (onDoubleClick) row.addEventListener("dblclick", onDoubleClick);
+      if (onContextMenu) row.addEventListener("contextmenu", event => {
+        if (state.selectedTreeRow) state.selectedTreeRow.classList.remove("selected");
+        state.selectedTreeRow = row;
+        row.classList.add("selected");
+        onContextMenu(event);
+      });
+      return row;
+    }
+
+    function renderExplorer(schemas, objects) {
+      elements.tree.innerHTML = "";
+      const totalObjects = objects.length;
+
+      elements.tree.appendChild(treeRow({
+        indent: 0,
+        icon: "◆",
+        name: state.databaseName,
+        count: totalObjects,
+        searchable: `${state.databaseName} database`,
+        onClick: () => {
+          elements.details.innerHTML = `
+            <div class="detail-object">${escapeHtml(state.databaseName)}</div>
+            <div>PostgreSQL ${escapeHtml(state.version || "")}</div>
+            <div style="margin-top:6px">Stockage persistant : <span class="tag">IndexedDB</span></div>
+            <div style="margin-top:8px">Clic droit pour exporter un dump SQL complet, structure seule ou données seules.</div>
+          `;
+        },
+        onContextMenu: event => showDatabaseMenu(event),
+      }));
+
+      elements.tree.appendChild(treeRow({
+        indent: 1,
+        icon: "▱",
+        name: "Schémas",
+        count: schemas.length,
+        searchable: "schemas schémas",
+        onClick: () => {
+          elements.details.innerHTML = `<div class="detail-object">Schémas</div><div>${schemas.length.toLocaleString("fr-FR")} schéma(s) utilisateur.</div><div style="margin-top:9px">Clic droit pour générer la création d’un nouveau schéma.</div>`;
+        },
+        onContextMenu: event => showSchemasRootMenu(event),
+      }));
+
+      for (const schema of schemas) {
+        const schemaObjects = objects.filter(object => object.schema_name === schema);
+        elements.tree.appendChild(treeRow({
+          indent: 2,
+          icon: "◇",
+          iconClass: "schema",
+          name: schema,
+          count: schemaObjects.length,
+          searchable: `${schema} schema schéma`,
+          onClick: () => showSchemaDetails(schema, schemaObjects),
+          onContextMenu: event => showSchemaMenu(event, schema),
+        }));
+
+        const groups = [
+          ["table", "Tables", "▦", "table"],
+          ["view", "Vues", "◫", "view"],
+          ["materialized_view", "Vues matérialisées", "▣", "view"],
+          ["sequence", "Séquences", "↕", "sequence"],
+          ["function", "Fonctions", "ƒ", "function"],
+          ["procedure", "Procédures", "⚙", "function"],
+          ["enum", "Types ENUM", "◈", "schema"],
+          ["domain", "Domaines", "◇", "schema"],
+        ];
+
+        for (const [type, label, icon, iconClass] of groups) {
+          const groupObjects = schemaObjects.filter(object => object.object_type === type);
+          if (!groupObjects.length) continue;
+
+          elements.tree.appendChild(treeRow({
+            indent: 3,
+            icon,
+            iconClass,
+            name: label,
+            count: groupObjects.length,
+            searchable: `${schema} ${label} ${type}`,
+          }));
+
+          for (const object of groupObjects) {
+            elements.tree.appendChild(treeRow({
+              indent: 4,
+              icon,
+              iconClass,
+              name: object.object_name,
+              recordCount: type === "table"
+                ? (object.row_count === null || object.row_count === undefined ? "—" : Number(object.row_count).toLocaleString("fr-FR"))
+                : null,
+              searchable: `${schema} ${object.object_name} ${type}`,
+              onClick: () => showObjectDetails(schema, object.object_name, type),
+              onDoubleClick: () => ["table", "view", "materialized_view"].includes(type)
+                ? openSelectAndRun(schema, object.object_name, type)
+                : insertObjectQuery(schema, object.object_name, type),
+              onContextMenu: event => showObjectMenu(event, schema, object.object_name, type),
+            }));
+          }
+        }
+      }
+
+      if (!objects.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty-tree";
+        empty.textContent = "La base ne contient encore aucun objet utilisateur. Clique sur Exemple guidé ou exécute ton DDL.";
+        elements.tree.appendChild(empty);
+      }
+    }
+
+    function applyTreeFilter() {
+      const search = elements.treeSearch.value.trim().toLocaleLowerCase("fr");
+      for (const row of elements.tree.querySelectorAll(".tree-row")) {
+        row.classList.toggle("filtered-out", Boolean(search) && !row.dataset.search.includes(search));
+      }
+    }
+
+    function showSchemaDetails(schema, objects) {
+      const counts = objects.reduce((acc, item) => {
+        acc[item.object_type] = (acc[item.object_type] || 0) + 1;
+        return acc;
+      }, {});
+      elements.details.innerHTML = `
+        <div class="detail-object">Schéma ${escapeHtml(schema)}</div>
+        <table class="detail-table">
+          <tr><th>Type</th><th>Nombre</th></tr>
+          <tr><td>Tables</td><td>${counts.table || 0}</td></tr>
+          <tr><td>Vues</td><td>${counts.view || 0}</td></tr>
+          <tr><td>Séquences</td><td>${counts.sequence || 0}</td></tr>
+          <tr><td>Fonctions</td><td>${counts.function || 0}</td></tr>
+          <tr><td>Procédures</td><td>${counts.procedure || 0}</td></tr>
+          <tr><td>Types ENUM</td><td>${counts.enum || 0}</td></tr>
+          <tr><td>Domaines</td><td>${counts.domain || 0}</td></tr>
+        </table>
+        <div style="margin-top:9px">Clic droit sur le schéma pour créer des objets ou exporter son DDL, ses données ou les deux.</div>
+      `;
+    }
+
+    async function showObjectDetails(schema, objectName, type) {
+      elements.details.innerHTML = `<div class="detail-object">${escapeHtml(schema)}.${escapeHtml(objectName)}</div><div>Chargement de la structure…</div>`;
+      try {
+        if (["function", "procedure"].includes(type)) {
+          const rawName = objectName.replace(/\(.*$/, "");
+          const functions = await state.db.query(`
+            SELECT pg_get_function_arguments(p.oid) AS arguments,
+                   CASE WHEN p.prokind = 'p' THEN 'procédure' ELSE pg_get_function_result(p.oid) END AS returns,
+                   l.lanname AS language,
+                   p.prokind
+            FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            JOIN pg_language l ON l.oid = p.prolang
+            WHERE n.nspname = $1 AND p.proname = $2
+            ORDER BY p.oid;
+          `, [schema, rawName]);
+          elements.details.innerHTML = `
+            <div class="detail-object">${type === "procedure" ? "⚙ Procédure" : "ƒ Fonction"} ${escapeHtml(schema)}.${escapeHtml(objectName)}</div>
+            ${functions.rows.map(row => `<div style="margin-bottom:9px"><span class="tag">${escapeHtml(row.language)}</span><br>Arguments : ${escapeHtml(row.arguments || "—")}<br>${type === "procedure" ? "Type" : "Retour"} : ${escapeHtml(row.returns || "—")}</div>`).join("") || "Aucun détail."}
+          `;
+          return;
+        }
+
+        if (type === "enum") {
+          const values = await state.db.query(`
+            SELECT e.enumlabel
+            FROM pg_type t
+            JOIN pg_namespace n ON n.oid = t.typnamespace
+            JOIN pg_enum e ON e.enumtypid = t.oid
+            WHERE n.nspname = $1 AND t.typname = $2
+            ORDER BY e.enumsortorder;
+          `, [schema, objectName]);
+          elements.details.innerHTML = `<div class="detail-object">Type ENUM ${escapeHtml(schema)}.${escapeHtml(objectName)}</div><div>${values.rows.map(row => `<span class="tag">${escapeHtml(row.enumlabel)}</span>`).join(" ") || "Aucune valeur."}</div>`;
+          return;
+        }
+
+        if (type === "domain") {
+          const domain = await state.db.query(`
+            SELECT format_type(t.typbasetype, t.typtypmod) AS base_type,
+                   c.conname,
+                   pg_get_constraintdef(c.oid) AS definition
+            FROM pg_type t
+            JOIN pg_namespace n ON n.oid = t.typnamespace
+            LEFT JOIN pg_constraint c ON c.contypid = t.oid
+            WHERE n.nspname = $1 AND t.typname = $2
+            ORDER BY c.conname;
+          `, [schema, objectName]);
+          const first = domain.rows[0] || {};
+          elements.details.innerHTML = `<div class="detail-object">Domaine ${escapeHtml(schema)}.${escapeHtml(objectName)}</div><div>Type de base : <span class="tag">${escapeHtml(first.base_type || "—")}</span></div>${domain.rows.filter(row => row.definition).map(row => `<div style="margin-top:8px"><strong>${escapeHtml(row.conname || "Contrainte")}</strong><br>${escapeHtml(row.definition)}</div>`).join("")}`;
+          return;
+        }
+
+        if (type === "sequence") {
+          elements.details.innerHTML = `<div class="detail-object">Séquence ${escapeHtml(schema)}.${escapeHtml(objectName)}</div><div>Double-clique pour générer une requête de lecture.</div>`;
+          return;
+        }
+
+        const metadata = await getTableMetadata(schema, objectName);
+        const indexes = type === "table" ? await state.db.query(`
+          SELECT indexname, indexdef
+          FROM pg_indexes
+          WHERE schemaname = $1 AND tablename = $2
+          ORDER BY indexname;
+        `, [schema, objectName]) : { rows: [] };
+
+        const rows = metadata.columns.map(column => `
+          <tr>
+            <td>${column.is_primary_key ? '<span class="tag">PK</span> ' : ''}${column.is_foreign_key ? '<span class="tag">FK</span> ' : ''}${escapeHtml(column.column_name)}</td>
+            <td>${escapeHtml(displayColumnType(column))}</td>
+            <td>${column.is_nullable === "YES" ? "oui" : "non"}</td>
+          </tr>
+        `).join("");
+
+        elements.details.innerHTML = `
+          <div class="detail-object">${type === "view" ? "Vue" : type === "materialized_view" ? "Vue matérialisée" : "Table"} ${escapeHtml(schema)}.${escapeHtml(objectName)}</div>
+          <table class="detail-table">
+            <thead><tr><th>Colonne</th><th>Type</th><th>Null</th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="3">Aucune colonne.</td></tr>'}</tbody>
+          </table>
+          ${indexes.rows.length ? `<div style="margin:11px 0 5px;color:#d5e0eb;font-weight:700">Index</div>${indexes.rows.map(index => `<div style="margin-bottom:7px"><span class="tag">${escapeHtml(index.indexname)}</span><div style="margin-top:3px;overflow-wrap:anywhere">${escapeHtml(index.indexdef)}</div></div>`).join("")}` : ""}
+          <div style="margin-top:9px">Clic droit pour générer SELECT, INSERT, UPDATE, fake data ou dump SQL.</div>
+        `;
+      } catch (error) {
+        elements.details.innerHTML = `<div class="detail-object">${escapeHtml(schema)}.${escapeHtml(objectName)}</div><div class="error-box">${escapeHtml(friendlyError(error))}</div>`;
+      }
+    }
+
+    function displayColumnType(column) {
+      if (column.enum_values?.length) return `${column.udt_name} (${column.enum_values.join(" | ")})`;
+      return column.data_type === "USER-DEFINED" ? column.udt_name : column.data_type;
+    }
+
+    async function getTableMetadata(schema, table) {
+      const columnsResult = await state.db.query(`
+        SELECT c.ordinal_position,
+               c.column_name,
+               c.data_type,
+               c.udt_name,
+               c.udt_schema,
+               c.is_nullable,
+               c.column_default,
+               c.is_identity,
+               c.identity_generation,
+               c.is_generated,
+               c.character_maximum_length,
+               c.numeric_precision,
+               c.numeric_scale,
+               EXISTS (
+                 SELECT 1
+                 FROM information_schema.table_constraints tc
+                 JOIN information_schema.key_column_usage kcu
+                   ON tc.constraint_name = kcu.constraint_name
+                  AND tc.constraint_schema = kcu.constraint_schema
+                  AND tc.table_name = kcu.table_name
+                 WHERE tc.table_schema = c.table_schema
+                   AND tc.table_name = c.table_name
+                   AND tc.constraint_type = 'PRIMARY KEY'
+                   AND kcu.column_name = c.column_name
+               ) AS is_primary_key,
+               EXISTS (
+                 SELECT 1
+                 FROM information_schema.table_constraints tc
+                 JOIN information_schema.key_column_usage kcu
+                   ON tc.constraint_name = kcu.constraint_name
+                  AND tc.constraint_schema = kcu.constraint_schema
+                  AND tc.table_name = kcu.table_name
+                 WHERE tc.table_schema = c.table_schema
+                   AND tc.table_name = c.table_name
+                   AND tc.constraint_type IN ('PRIMARY KEY', 'UNIQUE')
+                   AND kcu.column_name = c.column_name
+               ) AS is_unique
+        FROM information_schema.columns c
+        WHERE c.table_schema = $1 AND c.table_name = $2
+        ORDER BY c.ordinal_position;
+      `, [schema, table]);
+
+      const fkResult = await state.db.query(`
+        SELECT local_att.attname AS column_name,
+               foreign_ns.nspname AS foreign_schema,
+               foreign_table.relname AS foreign_table,
+               foreign_att.attname AS foreign_column
+        FROM pg_constraint constraint_def
+        JOIN pg_class local_table ON local_table.oid = constraint_def.conrelid
+        JOIN pg_namespace local_ns ON local_ns.oid = local_table.relnamespace
+        JOIN pg_class foreign_table ON foreign_table.oid = constraint_def.confrelid
+        JOIN pg_namespace foreign_ns ON foreign_ns.oid = foreign_table.relnamespace
+        CROSS JOIN LATERAL unnest(constraint_def.conkey, constraint_def.confkey)
+          AS key_pair(local_attnum, foreign_attnum)
+        JOIN pg_attribute local_att
+          ON local_att.attrelid = local_table.oid
+         AND local_att.attnum = key_pair.local_attnum
+        JOIN pg_attribute foreign_att
+          ON foreign_att.attrelid = foreign_table.oid
+         AND foreign_att.attnum = key_pair.foreign_attnum
+        WHERE constraint_def.contype = 'f'
+          AND local_ns.nspname = $1
+          AND local_table.relname = $2;
+      `, [schema, table]);
+
+      const enumsResult = await state.db.query(`
+        SELECT a.attname AS column_name,
+               array_agg(e.enumlabel ORDER BY e.enumsortorder) AS enum_values
+        FROM pg_attribute a
+        JOIN pg_class c ON c.oid = a.attrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        JOIN pg_type t ON t.oid = a.atttypid
+        JOIN pg_enum e ON e.enumtypid = t.oid
+        WHERE n.nspname = $1
+          AND c.relname = $2
+          AND a.attnum > 0
+          AND NOT a.attisdropped
+        GROUP BY a.attname;
+      `, [schema, table]);
+
+      const checksResult = await state.db.query(`
+        SELECT pg_get_constraintdef(constraint_def.oid, false) AS definition
+        FROM pg_constraint constraint_def
+        JOIN pg_class table_def ON table_def.oid = constraint_def.conrelid
+        JOIN pg_namespace schema_def ON schema_def.oid = table_def.relnamespace
+        WHERE constraint_def.contype = 'c'
+          AND schema_def.nspname = $1
+          AND table_def.relname = $2;
+      `, [schema, table]);
+
+      const fks = new Map(fkResult.rows.map(row => [row.column_name, row]));
+      const enums = new Map(enumsResult.rows.map(row => [row.column_name, row.enum_values]));
+      const checkValues = extractCheckValues(checksResult.rows.map(row => row.definition), columnsResult.rows);
+      const columns = columnsResult.rows.map(column => ({
+        ...column,
+        is_foreign_key: fks.has(column.column_name),
+        foreign_key: fks.get(column.column_name) || null,
+        enum_values: enums.get(column.column_name) || null,
+        check_values: checkValues.get(column.column_name) || null,
+      }));
+      return { columns };
+    }
+
+    function extractCheckValues(definitions, columns) {
+      const valuesByColumn = new Map();
+      for (const column of columns) {
+        const escapedName = column.column_name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        for (const definition of definitions) {
+          if (!new RegExp(`(?:"${escapedName}"|\\b${escapedName}\\b)`, "i").test(definition)) continue;
+          if (!/(?:\bIN\s*\(|ANY\s*\(\s*ARRAY\s*\[)/i.test(definition)) continue;
+          const strings = [...definition.matchAll(/'((?:''|[^'])*)'(?:\s*::[a-zA-Z0-9_." ]+)?/g)]
+            .map(match => match[1].replaceAll("''", "'"));
+          if (strings.length) {
+            valuesByColumn.set(column.column_name, [...new Set(strings)]);
+            break;
+          }
+        }
+      }
+      return valuesByColumn;
+    }
+
+    function isAutoGeneratedColumn(column) {
+      return column.is_identity === "YES"
+        || (column.is_generated && column.is_generated !== "NEVER")
+        || /nextval\s*\(/i.test(column.column_default || "");
+    }
+
+    function insertObjectQuery(schema, objectName, type) {
+      let sql;
+      let title;
+      if (type === "sequence") {
+        sql = `SELECT * FROM ${qualify(schema, objectName)};`;
+        title = `Séquence ${objectName}`;
+      } else if (type === "function") {
+        const rawName = objectName.replace(/\(.*$/, "");
+        sql = `-- Complète les arguments si nécessaire\nSELECT ${qualify(schema, rawName)}();`;
+        title = `Fonction ${rawName}`;
+      } else if (type === "procedure") {
+        const rawName = objectName.replace(/\(.*$/, "");
+        sql = `-- Complète les arguments si nécessaire\nCALL ${qualify(schema, rawName)}();`;
+        title = `CALL ${rawName}`;
+      } else if (type === "enum") {
+        sql = `SELECT NULL::${qualify(schema, objectName)} AS example_value;`;
+        title = `TYPE ${objectName}`;
+      } else if (type === "domain") {
+        sql = `SELECT NULL::${qualify(schema, objectName)} AS example_value;`;
+        title = `DOMAIN ${objectName}`;
+      } else {
+        sql = generateSelectScript(schema, objectName);
+        title = `SELECT ${objectName}`;
+      }
+      openSqlInNewTab(sql, title);
+    }
+
+    function generateSelectScript(schema, table) {
+      return `SELECT *\nFROM ${qualify(schema, table)}\nLIMIT 200;`;
+    }
+
+    async function generateInsertTemplate(schema, table) {
+      const { columns } = await getTableMetadata(schema, table);
+      const insertColumns = columns.filter(column => !isAutoGeneratedColumn(column));
+      if (!insertColumns.length) return `INSERT INTO ${qualify(schema, table)} DEFAULT VALUES;`;
+      return `INSERT INTO ${qualify(schema, table)} (\n${insertColumns.map(column => `  ${quoteIdent(column.column_name)}`).join(",\n")}\n) VALUES (\n${insertColumns.map(column => `  ${templateLiteral(column)}${column.column_default ? ` -- défaut : ${column.column_default}` : ""}`).join(",\n")}\n)\nRETURNING *;`;
+    }
+
+    async function generateUpdateTemplate(schema, table) {
+      const { columns } = await getTableMetadata(schema, table);
+      const primaryKeys = columns.filter(column => column.is_primary_key);
+      const editable = columns.filter(column => !column.is_primary_key && !isAutoGeneratedColumn(column));
+      const setClause = editable.length
+        ? editable.map(column => `  ${quoteIdent(column.column_name)} = ${templateLiteral(column)}`).join(",\n")
+        : "  -- aucune colonne modifiable détectée";
+      const whereClause = primaryKeys.length
+        ? primaryKeys.map(column => `${quoteIdent(column.column_name)} = ${templateLiteral(column)}`).join("\n  AND ")
+        : "/* ATTENTION : aucune clé primaire détectée. Ajoute une condition restrictive. */ TRUE";
+      return `UPDATE ${qualify(schema, table)}\nSET\n${setClause}\nWHERE ${whereClause}\nRETURNING *;`;
+    }
+
+    function templateLiteral(column) {
+      const type = String(column.udt_name || column.data_type || "").toLowerCase();
+      if (column.column_default) return "DEFAULT";
+      if (column.enum_values?.length) return `${sqlString(column.enum_values[0])}::${qualifiedType(column)}`;
+      if (column.check_values?.length) return sqlString(column.check_values[0]);
+      if (["bool", "boolean"].includes(type)) return "false";
+      if (["int2", "int4", "int8", "smallint", "integer", "bigint", "numeric", "decimal", "float4", "float8", "real", "double precision", "money"].includes(type)) return "0";
+      if (type === "uuid") return `'00000000-0000-0000-0000-000000000000'::uuid`;
+      if (type === "date") return "CURRENT_DATE";
+      if (type.includes("timestamp")) return "CURRENT_TIMESTAMP";
+      if (type.includes("time")) return "CURRENT_TIME";
+      if (["json", "jsonb"].includes(type)) return `'{}'::${type}`;
+      if (type === "bytea") return `decode('', 'hex')`;
+      if (type.startsWith("_") || column.data_type === "ARRAY") return `ARRAY[]::${type.replace(/^_/, "")}[]`;
+      return column.is_nullable === "YES" ? "NULL" : `''`;
+    }
+
+    function showSchemasRootMenu(event) {
+      showContextMenu(event, [
+        { icon: "＋", label: "Créer un nouveau schéma…", action: showCreateSchemaDialog },
+      ], "Schémas");
+    }
+
+    function showCreateSchemaDialog() {
+      showModal({
+        title: "Créer un nouveau schéma",
+        bodyHtml: `
+          <div class="modal-help">Le SQL sera généré dans un nouvel onglet. Tu pourras le relire puis l’exécuter avec Ctrl + Entrée.</div>
+          <div class="modal-form-grid" style="grid-template-columns:1fr">
+            <div class="modal-field">
+              <label for="newSchemaName">Nom du schéma</label>
+              <input class="modal-input" id="newSchemaName" type="text" value="new_schema" autocomplete="off" />
+            </div>
+          </div>`,
+        confirmLabel: "Générer le SQL",
+        onConfirm: async () => {
+          const name = String($("newSchemaName")?.value || "").trim();
+          if (!name) throw new Error("Le nom du schéma est obligatoire.");
+          const sql = `CREATE SCHEMA IF NOT EXISTS ${quoteIdent(name)};\n\n-- Optionnel : utiliser ce schéma par défaut pour la session\nSET search_path TO ${quoteIdent(name)}, public;`;
+          openSqlInNewTab(sql, `CREATE SCHEMA ${name}`);
+          closeModal();
+        },
+      });
+    }
+
+    const CREATE_OBJECT_LABELS = {
+      table: "table",
+      view: "vue",
+      materialized_view: "vue matérialisée",
+      sequence: "séquence",
+      function: "fonction",
+      procedure: "procédure stockée",
+      enum: "type ENUM",
+      domain: "domaine",
+    };
+
+    function showCreateObjectDialog(schema, objectType) {
+      const label = CREATE_OBJECT_LABELS[objectType] || objectType;
+      const defaults = {
+        table: "new_table",
+        view: "new_view",
+        materialized_view: "new_materialized_view",
+        sequence: "new_sequence",
+        function: "new_function",
+        procedure: "new_procedure",
+        enum: "new_status",
+        domain: "new_domain",
+      };
+      showModal({
+        title: `Ajouter une ${label} dans ${schema}`,
+        bodyHtml: `
+          <div class="modal-help">Un modèle PostgreSQL modifiable sera ouvert dans un nouvel onglet. Rien n’est créé avant son exécution.</div>
+          <div class="modal-form-grid" style="grid-template-columns:1fr">
+            <div class="modal-field">
+              <label for="newObjectName">Nom de l’objet</label>
+              <input class="modal-input" id="newObjectName" type="text" value="${escapeHtml(defaults[objectType] || "new_object")}" autocomplete="off" />
+            </div>
+          </div>`,
+        confirmLabel: "Générer le SQL",
+        onConfirm: async () => {
+          const name = String($("newObjectName")?.value || "").trim();
+          if (!name) throw new Error("Le nom de l’objet est obligatoire.");
+          const sql = createObjectTemplate(schema, objectType, name);
+          openSqlInNewTab(sql, `CREATE ${name}`);
+          closeModal();
+        },
+      });
+    }
+
+    function createObjectTemplate(schema, objectType, name) {
+      const target = qualify(schema, name);
+      switch (objectType) {
+        case "table":
+          return `CREATE TABLE ${target} (\n  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,\n  -- Ajoute ici les colonnes métier\n  name TEXT NOT NULL,\n  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),\n  updated_at TIMESTAMPTZ NULL\n);\n\nCOMMENT ON TABLE ${target} IS 'À documenter';`;
+        case "view":
+          return `CREATE OR REPLACE VIEW ${target} AS\nSELECT\n  -- Remplace par les colonnes à exposer\n  1 AS example_value;\n\nCOMMENT ON VIEW ${target} IS 'À documenter';`;
+        case "materialized_view":
+          return `CREATE MATERIALIZED VIEW ${target} AS\nSELECT\n  -- Remplace par la requête de matérialisation\n  1 AS example_value\nWITH DATA;\n\n-- Exemple :\n-- CREATE UNIQUE INDEX ${quoteIdent(`${name}_ux`)} ON ${target} (example_value);\n-- REFRESH MATERIALIZED VIEW ${target};`;
+        case "sequence":
+          return `CREATE SEQUENCE ${target}\n  AS BIGINT\n  START WITH 1\n  INCREMENT BY 1\n  MINVALUE 1\n  NO MAXVALUE\n  CACHE 1;\n\nSELECT nextval(${sqlString(`${schema}.${name}`)}::regclass);`;
+        case "function":
+          return `CREATE OR REPLACE FUNCTION ${target}(p_value TEXT)\nRETURNS TEXT\nLANGUAGE plpgsql\nAS $function$\nBEGIN\n  RETURN p_value;\nEND;\n$function$;\n\nSELECT ${target}('test');`;
+        case "procedure":
+          return `CREATE OR REPLACE PROCEDURE ${target}(IN p_value TEXT)\nLANGUAGE plpgsql\nAS $procedure$\nBEGIN\n  RAISE NOTICE 'Valeur reçue : %', p_value;\n  -- Ajoute ici les traitements métier.\nEND;\n$procedure$;\n\nCALL ${target}('test');`;
+        case "enum":
+          return `CREATE TYPE ${target} AS ENUM (\n  'DRAFT',\n  'ACTIVE',\n  'INACTIVE'\n);`;
+        case "domain":
+          return `CREATE DOMAIN ${target} AS TEXT\n  CHECK (VALUE IS NULL OR length(trim(VALUE)) > 0);`;
+        default:
+          return `-- Modèle non disponible pour ${objectType}\n-- Crée ici l’objet ${target}.`;
+      }
+    }
+
+    function generateIndexTemplate(schema, table) {
+      const indexName = `${table}_idx`;
+      return `CREATE INDEX ${quoteIdent(indexName)}\n  ON ${qualify(schema, table)} (\n    -- colonne_1 ASC\n  );\n\n-- Variante unique : CREATE UNIQUE INDEX ...\n-- Variante partielle : ajoute WHERE ...`;
+    }
+
+    function generateTriggerTemplate(schema, table) {
+      const functionName = `${table}_before_write`;
+      const triggerName = `${table}_before_write_trg`;
+      return `CREATE OR REPLACE FUNCTION ${qualify(schema, functionName)}()\nRETURNS TRIGGER\nLANGUAGE plpgsql\nAS $trigger_function$\nBEGIN\n  -- Exemple : NEW.updated_at := now();\n  RETURN NEW;\nEND;\n$trigger_function$;\n\nCREATE TRIGGER ${quoteIdent(triggerName)}\nBEFORE INSERT OR UPDATE ON ${qualify(schema, table)}\nFOR EACH ROW\nEXECUTE FUNCTION ${qualify(schema, functionName)}();`;
+    }
+
+    function showDatabaseMenu(event) {
+      showContextMenu(event, [
+        { icon: "＋", label: "Nouvel onglet de requête", action: () => createQueryTab() },
+        { separator: true },
+        { icon: "▦", label: "Dump SQL — structure uniquement", action: () => exportSqlDump({ mode: "schema" }) },
+        { icon: "⇩", label: "Dump SQL — données uniquement", action: () => exportSqlDump({ mode: "data" }) },
+        { icon: "◆", label: "Dump SQL — structure + données", action: () => exportSqlDump({ mode: "full" }) },
+        { separator: true },
+        { icon: "▣", label: "Archive binaire PGlite", action: exportDatabase },
+      ], `Base ${state.databaseName}`);
+    }
+
+    function showSchemaMenu(event, schema) {
+      showContextMenu(event, [
+        { icon: "▦", label: "Ajouter une table…", action: () => showCreateObjectDialog(schema, "table") },
+        { icon: "◫", label: "Ajouter une vue…", action: () => showCreateObjectDialog(schema, "view") },
+        { icon: "▣", label: "Ajouter une vue matérialisée…", action: () => showCreateObjectDialog(schema, "materialized_view") },
+        { icon: "↕", label: "Ajouter une séquence…", action: () => showCreateObjectDialog(schema, "sequence") },
+        { separator: true },
+        { icon: "ƒ", label: "Ajouter une fonction…", action: () => showCreateObjectDialog(schema, "function") },
+        { icon: "⚙", label: "Ajouter une procédure stockée…", action: () => showCreateObjectDialog(schema, "procedure") },
+        { icon: "◈", label: "Ajouter un type ENUM…", action: () => showCreateObjectDialog(schema, "enum") },
+        { icon: "◇", label: "Ajouter un domaine…", action: () => showCreateObjectDialog(schema, "domain") },
+        { separator: true },
+        { icon: "▦", label: "Dump du schéma — structure", action: () => exportSqlDump({ mode: "schema", schema }) },
+        { icon: "⇩", label: "Dump du schéma — données", action: () => exportSqlDump({ mode: "data", schema }) },
+        { icon: "◆", label: "Dump du schéma — complet", action: () => exportSqlDump({ mode: "full", schema }) },
+        { separator: true },
+        { icon: "⌫", label: "Supprimer le schéma…", danger: true, action: () => showDropSchemaDialog(schema) },
+      ], `Schéma ${schema}`);
+    }
+
+    function showObjectMenu(event, schema, objectName, type) {
+      const items = [];
+      if (["table", "view", "materialized_view"].includes(type)) {
+        items.push({ icon: "▶", label: "Ouvrir et exécuter SELECT *", action: () => openSelectAndRun(schema, objectName, type) });
+      }
+      if (type === "table") {
+        items.push(
+          { icon: "＋", label: "Générer INSERT", action: async () => openSqlInNewTab(await generateInsertTemplate(schema, objectName), `INSERT ${objectName}`) },
+          { icon: "✎", label: "Générer UPDATE", action: async () => openSqlInNewTab(await generateUpdateTemplate(schema, objectName), `UPDATE ${objectName}`) },
+          { separator: true },
+          { icon: "⌁", label: "Ajouter un index…", action: () => openSqlInNewTab(generateIndexTemplate(schema, objectName), `INDEX ${objectName}`) },
+          { icon: "⚡", label: "Ajouter un trigger…", action: () => openSqlInNewTab(generateTriggerTemplate(schema, objectName), `TRIGGER ${objectName}`) },
+          { separator: true },
+          { icon: "⚗", label: "Générer des fake data…", hint: "Générateur local", action: () => showFakeDataDialog(schema, objectName) },
+          { separator: true },
+          { icon: "▦", label: "Dump table — structure", action: () => exportSqlDump({ mode: "schema", table: { schema, name: objectName } }) },
+          { icon: "⇩", label: "Dump table — données", action: () => exportSqlDump({ mode: "data", table: { schema, name: objectName } }) },
+          { icon: "◆", label: "Dump table — complet", action: () => exportSqlDump({ mode: "full", table: { schema, name: objectName } }) },
+          { separator: true },
+          { icon: "⌫", label: "Supprimer la table…", danger: true, action: () => showDropTableDialog(schema, objectName) },
+        );
+      } else if (["view", "materialized_view"].includes(type)) {
+        items.push(
+          { separator: true },
+          { icon: "▦", label: "Exporter le DDL de la vue", action: () => exportSqlDump({ mode: "schema", table: { schema, name: objectName } }) },
+          { separator: true },
+          { icon: "⌫", label: "Supprimer la vue…", danger: true, action: () => showDropGenericObjectDialog(schema, objectName, type) },
+        );
+      } else if (["sequence", "function", "procedure", "enum", "domain"].includes(type)) {
+        items.push(
+          { icon: "▶", label: type === "procedure" ? "Générer CALL" : "Ouvrir une requête", action: () => insertObjectQuery(schema, objectName, type) },
+          { separator: true },
+          { icon: "⌫", label: "Supprimer l’objet…", danger: true, action: () => showDropGenericObjectDialog(schema, objectName, type) },
+        );
+      }
+      showContextMenu(event, items, `${schema}.${objectName}`);
+    }
+
+
+    function impactList(items, emptyText) {
+      if (!items.length) return `<div class="modal-help">${escapeHtml(emptyText)}</div>`;
+      return `<ul class="impact-list">${items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+    }
+
+    async function analyzeTableDrop(schema, table) {
+      const relation = `${quoteIdent(schema)}.${quoteIdent(table)}`;
+      const [countResult, foreignKeysResult, viewsResult] = await Promise.all([
+        state.db.query(`SELECT COUNT(*)::bigint AS row_count FROM ${qualify(schema, table)};`),
+        state.db.query(`
+          SELECT constraint_def.conname AS constraint_name,
+                 source_ns.nspname AS source_schema,
+                 source_table.relname AS source_table,
+                 pg_get_constraintdef(constraint_def.oid, true) AS definition
+          FROM pg_constraint constraint_def
+          JOIN pg_class source_table ON source_table.oid = constraint_def.conrelid
+          JOIN pg_namespace source_ns ON source_ns.oid = source_table.relnamespace
+          WHERE constraint_def.contype = 'f'
+            AND constraint_def.confrelid = to_regclass($1)
+          ORDER BY source_ns.nspname, source_table.relname, constraint_def.conname;
+        `, [relation]),
+        state.db.query(`
+          SELECT DISTINCT dependent_ns.nspname AS dependent_schema,
+                          dependent.relname AS dependent_name,
+                          dependent.relkind AS dependent_kind
+          FROM pg_depend dependency
+          JOIN pg_rewrite rewrite_def ON rewrite_def.oid = dependency.objid
+          JOIN pg_class dependent ON dependent.oid = rewrite_def.ev_class
+          JOIN pg_namespace dependent_ns ON dependent_ns.oid = dependent.relnamespace
+          WHERE dependency.classid = 'pg_rewrite'::regclass
+            AND dependency.refclassid = 'pg_class'::regclass
+            AND dependency.refobjid = to_regclass($1)
+            AND dependent.oid <> to_regclass($1)
+            AND dependent.relkind IN ('v', 'm')
+          ORDER BY dependent_ns.nspname, dependent.relname;
+        `, [relation]),
+      ]);
+      return {
+        rowCount: Number(countResult.rows[0]?.row_count || 0),
+        foreignKeys: foreignKeysResult.rows,
+        views: viewsResult.rows,
+      };
+    }
+
+    async function showDropTableDialog(schema, table) {
+      if (!state.db || state.running) return;
+      setBusy(true, `Analyse des dépendances de ${schema}.${table}…`);
+      let impact;
+      try {
+        impact = await analyzeTableDrop(schema, table);
+      } finally {
+        setBusy(false);
+      }
+
+      const fkItems = impact.foreignKeys.map(item =>
+        `${item.source_schema}.${item.source_table} — contrainte ${item.constraint_name} (${item.definition})`
+      );
+      const viewItems = impact.views.map(item =>
+        `${item.dependent_kind === "m" ? "Vue matérialisée" : "Vue"} ${item.dependent_schema}.${item.dependent_name}`
+      );
+      const externalDependencyCount = fkItems.length + viewItems.length;
+      const cascade = externalDependencyCount > 0;
+      const sql = `DROP TABLE ${qualify(schema, table)}${cascade ? " CASCADE" : ""};`;
+
+      showModal({
+        title: `Supprimer la table ${schema}.${table}`,
+        confirmLabel: cascade ? "Supprimer avec cascade" : "Supprimer la table",
+        danger: true,
+        bodyHtml: `
+          <div class="modal-warning"><strong>Suppression définitive.</strong> Cette opération sera exécutée immédiatement dans la base locale.</div>
+          <div class="impact-summary">
+            <div class="impact-stat"><strong>${impact.rowCount.toLocaleString("fr-FR")}</strong><span>ligne(s) supprimée(s)</span></div>
+            <div class="impact-stat"><strong>${fkItems.length}</strong><span>clé(s) étrangère(s) entrante(s)</span></div>
+            <div class="impact-stat"><strong>${viewItems.length}</strong><span>vue(s) dépendante(s)</span></div>
+          </div>
+          <p><strong>Contraintes externes dépendant d’une clé primaire ou unique de cette table</strong></p>
+          ${impactList(fkItems, "Aucune autre table ne référence cette table. Aucune contrainte externe ne sera supprimée.")}
+          <p><strong>Vues dépendantes</strong></p>
+          ${impactList(viewItems, "Aucune vue ou vue matérialisée dépendante n’a été détectée.")}
+          <div class="modal-help">Les index, triggers, contraintes et séquences possédées par la table disparaîtront avec elle. ${cascade ? "PostgreSQL utilisera CASCADE pour retirer les dépendances listées ci-dessus." : "Aucune dépendance externe n’a été détectée : le DROP sera exécuté sans CASCADE."}</div>
+          <label class="confirm-check"><input type="checkbox" id="dropConfirmCheck" /> <span>Je confirme la suppression définitive de <strong>${escapeHtml(schema)}.${escapeHtml(table)}</strong>.</span></label>
+        `,
+        onConfirm: async () => {
+          if (!$('dropConfirmCheck')?.checked) throw new Error("Coche la confirmation avant de supprimer la table.");
+          closeModal();
+          openSqlInNewTab(sql, `DROP ${table}`);
+          await runSql();
+        },
+      });
+    }
+
+    async function analyzeSchemaDrop(schema) {
+      const [objectsResult, externalFkResult, externalViewsResult] = await Promise.all([
+        state.db.query(`
+          SELECT object_type, COUNT(*)::integer AS object_count
+          FROM (
+            SELECT CASE c.relkind
+                     WHEN 'r' THEN 'table'
+                     WHEN 'p' THEN 'table partitionnée'
+                     WHEN 'v' THEN 'vue'
+                     WHEN 'm' THEN 'vue matérialisée'
+                     WHEN 'S' THEN 'séquence'
+                   END AS object_type
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = $1 AND c.relkind IN ('r','p','v','m','S')
+            UNION ALL
+            SELECT CASE WHEN p.prokind = 'p' THEN 'procédure' ELSE 'fonction' END
+            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = $1 AND p.prokind IN ('f','p')
+            UNION ALL
+            SELECT CASE t.typtype WHEN 'e' THEN 'type ENUM' WHEN 'd' THEN 'domaine' END
+            FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+            WHERE n.nspname = $1 AND t.typtype IN ('e','d')
+          ) objects
+          WHERE object_type IS NOT NULL
+          GROUP BY object_type
+          ORDER BY object_type;
+        `, [schema]),
+        state.db.query(`
+          SELECT constraint_def.conname AS constraint_name,
+                 source_ns.nspname AS source_schema,
+                 source_table.relname AS source_table,
+                 target_table.relname AS target_table
+          FROM pg_constraint constraint_def
+          JOIN pg_class source_table ON source_table.oid = constraint_def.conrelid
+          JOIN pg_namespace source_ns ON source_ns.oid = source_table.relnamespace
+          JOIN pg_class target_table ON target_table.oid = constraint_def.confrelid
+          JOIN pg_namespace target_ns ON target_ns.oid = target_table.relnamespace
+          WHERE constraint_def.contype = 'f'
+            AND target_ns.nspname = $1
+            AND source_ns.nspname <> $1
+          ORDER BY source_ns.nspname, source_table.relname;
+        `, [schema]),
+        state.db.query(`
+          SELECT DISTINCT dependent_ns.nspname AS dependent_schema,
+                          dependent.relname AS dependent_name,
+                          dependent.relkind AS dependent_kind
+          FROM pg_depend dependency
+          JOIN pg_rewrite rewrite_def ON rewrite_def.oid = dependency.objid
+          JOIN pg_class dependent ON dependent.oid = rewrite_def.ev_class
+          JOIN pg_namespace dependent_ns ON dependent_ns.oid = dependent.relnamespace
+          JOIN pg_class referenced ON referenced.oid = dependency.refobjid
+          JOIN pg_namespace referenced_ns ON referenced_ns.oid = referenced.relnamespace
+          WHERE dependency.classid = 'pg_rewrite'::regclass
+            AND dependency.refclassid = 'pg_class'::regclass
+            AND referenced_ns.nspname = $1
+            AND dependent_ns.nspname <> $1
+            AND dependent.relkind IN ('v','m')
+          ORDER BY dependent_ns.nspname, dependent.relname;
+        `, [schema]),
+      ]);
+      return {
+        objects: objectsResult.rows,
+        foreignKeys: externalFkResult.rows,
+        views: externalViewsResult.rows,
+      };
+    }
+
+    async function showDropSchemaDialog(schema) {
+      if (!state.db || state.running) return;
+      setBusy(true, `Analyse du schéma ${schema}…`);
+      let impact;
+      try {
+        impact = await analyzeSchemaDrop(schema);
+      } finally {
+        setBusy(false);
+      }
+      const objectItems = impact.objects.map(item => `${item.object_type} : ${Number(item.object_count).toLocaleString("fr-FR")}`);
+      const fkItems = impact.foreignKeys.map(item => `${item.source_schema}.${item.source_table} — ${item.constraint_name}, vers ${schema}.${item.target_table}`);
+      const viewItems = impact.views.map(item => `${item.dependent_kind === "m" ? "Vue matérialisée" : "Vue"} ${item.dependent_schema}.${item.dependent_name}`);
+      const sql = `DROP SCHEMA ${quoteIdent(schema)} CASCADE;`;
+      showModal({
+        title: `Supprimer le schéma ${schema}`,
+        confirmLabel: "Supprimer le schéma avec cascade",
+        danger: true,
+        bodyHtml: `
+          <div class="modal-warning"><strong>Le schéma complet sera supprimé avec CASCADE.</strong> Tous ses objets et toutes les dépendances externes listées disparaîtront.</div>
+          <p style="margin-top:13px"><strong>Objets contenus</strong></p>
+          ${impactList(objectItems, "Le schéma ne contient actuellement aucun objet utilisateur.")}
+          <p><strong>Dépendances situées dans d’autres schémas</strong></p>
+          ${impactList([...fkItems, ...viewItems], "Aucune dépendance externe n’a été détectée.")}
+          ${schema === "public" ? '<div class="modal-warning"><strong>Attention :</strong> tu supprimes le schéma public. Il ne sera pas recréé automatiquement.</div>' : ''}
+          <label class="confirm-check"><input type="checkbox" id="dropConfirmCheck" /> <span>Je confirme la suppression définitive du schéma <strong>${escapeHtml(schema)}</strong>.</span></label>
+        `,
+        onConfirm: async () => {
+          if (!$('dropConfirmCheck')?.checked) throw new Error("Coche la confirmation avant de supprimer le schéma.");
+          closeModal();
+          openSqlInNewTab(sql, `DROP SCHEMA ${schema}`);
+          await runSql();
+        },
+      });
+    }
+
+    function parseRoutineIdentity(objectName) {
+      const match = String(objectName).match(/^([^()]*)\((.*)\)$/s);
+      return match ? { name: match[1], args: match[2] } : { name: objectName, args: "" };
+    }
+
+    function dropSqlForObject(schema, objectName, type) {
+      if (type === "view") return `DROP VIEW ${qualify(schema, objectName)} CASCADE;`;
+      if (type === "materialized_view") return `DROP MATERIALIZED VIEW ${qualify(schema, objectName)} CASCADE;`;
+      if (type === "sequence") return `DROP SEQUENCE ${qualify(schema, objectName)} CASCADE;`;
+      if (type === "enum") return `DROP TYPE ${qualify(schema, objectName)} CASCADE;`;
+      if (type === "domain") return `DROP DOMAIN ${qualify(schema, objectName)} CASCADE;`;
+      if (["function", "procedure"].includes(type)) {
+        const routine = parseRoutineIdentity(objectName);
+        return `DROP ${type === "procedure" ? "PROCEDURE" : "FUNCTION"} ${qualify(schema, routine.name)}(${routine.args}) CASCADE;`;
+      }
+      throw new Error(`Suppression non prise en charge pour le type ${type}.`);
+    }
+
+    function showDropGenericObjectDialog(schema, objectName, type) {
+      const labels = {
+        view: "vue",
+        materialized_view: "vue matérialisée",
+        sequence: "séquence",
+        function: "fonction",
+        procedure: "procédure",
+        enum: "type ENUM",
+        domain: "domaine",
+      };
+      const sql = dropSqlForObject(schema, objectName, type);
+      showModal({
+        title: `Supprimer ${schema}.${objectName}`,
+        confirmLabel: "Supprimer avec cascade",
+        danger: true,
+        bodyHtml: `
+          <div class="modal-warning"><strong>Suppression définitive de la ${escapeHtml(labels[type] || type)}.</strong> Le mot-clé CASCADE supprimera également les objets qui en dépendent.</div>
+          <div class="modal-help" style="margin-top:13px"><code>${escapeHtml(sql)}</code></div>
+          ${["enum", "domain"].includes(type) ? '<div class="modal-warning" style="margin-top:13px">Un type ou un domaine peut être utilisé par des colonnes. CASCADE peut donc supprimer des colonnes dépendantes.</div>' : ''}
+          <label class="confirm-check"><input type="checkbox" id="dropConfirmCheck" /> <span>Je confirme la suppression définitive de <strong>${escapeHtml(schema)}.${escapeHtml(objectName)}</strong>.</span></label>
+        `,
+        onConfirm: async () => {
+          if (!$('dropConfirmCheck')?.checked) throw new Error("Coche la confirmation avant de supprimer cet objet.");
+          closeModal();
+          openSqlInNewTab(sql, `DROP ${objectName}`);
+          await runSql();
+        },
+      });
+    }
+
+    function normalizeSqlForSource(sql) {
+      return String(sql || "")
+        .replace(/--[^\n\r]*/g, " ")
+        .replace(/\/\*[\s\S]*?\*\//g, " ")
+        .replace(/;+\s*$/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    }
+
+    function unquoteSqlIdentifier(value) {
+      const text = String(value || "");
+      if (text.startsWith('"') && text.endsWith('"')) return text.slice(1, -1).replaceAll('""', '"');
+      return text.toLowerCase();
+    }
+
+    function inferSimpleSelectSource(sql) {
+      const cleaned = String(sql || "")
+        .replace(/--[^\n\r]*/g, " ")
+        .replace(/\/\*[\s\S]*?\*\//g, " ")
+        .trim();
+      const identifier = '(?:"(?:""|[^"])+"|[A-Za-z_][A-Za-z0-9_$]*)';
+      const pattern = new RegExp(String.raw`^\s*SELECT\s+\*\s+FROM\s+(${identifier})(?:\s*\.\s*(${identifier}))?(?:\s+LIMIT\s+\d+)?\s*;?\s*$`, 'i');
+      const match = cleaned.match(pattern);
+      if (!match) return null;
+      const hasSchema = Boolean(match[2]);
+      return {
+        schema: hasSchema ? unquoteSqlIdentifier(match[1]) : 'public',
+        table: unquoteSqlIdentifier(hasSchema ? match[2] : match[1]),
+        type: 'table',
+      };
+    }
+
+    function activeEditableResultSource() {
+      const tab = activeTab();
+      if (!tab) return null;
+      const mapped = tab.resultSources?.[state.activeResult] || null;
+      if (mapped?.type === "table") return mapped;
+
+      // Compatibilité avec les onglets SELECT créés par les versions précédentes.
+      if (tab.sourceTable?.type === "table" && tab.sourceQuerySql && tab.lastExecutedSql
+          && normalizeSqlForSource(tab.lastExecutedSql) === normalizeSqlForSource(tab.sourceQuerySql)) {
+        return tab.sourceTable;
+      }
+
+      return inferSimpleSelectSource(tab.lastExecutedSql);
+    }
+
+    async function buildRowMutationScript(source, row, mode) {
+      const { columns } = await getTableMetadata(source.schema, source.table);
+      const available = columns.filter(column => Object.prototype.hasOwnProperty.call(row, column.column_name));
+      if (!available.length) throw new Error("Aucune colonne de la ligne ne correspond à la structure actuelle de la table.");
+      const primaryKeys = available.filter(column => column.is_primary_key);
+      const whereColumns = primaryKeys.length ? primaryKeys : available;
+      const whereClause = whereColumns.map(column =>
+        `  ${quoteIdent(column.column_name)} IS NOT DISTINCT FROM ${sqlLiteralForColumn(row[column.column_name], column)}`
+      ).join("\n  AND ");
+      const warning = primaryKeys.length
+        ? `-- Identification par clé primaire : ${primaryKeys.map(column => column.column_name).join(", ")}`
+        : "-- ATTENTION : aucune clé primaire détectée. La clause WHERE reprend toutes les valeurs et peut affecter plusieurs lignes identiques.";
+
+      if (mode === "delete") {
+        return `${warning}\nDELETE FROM ${qualify(source.schema, source.table)}\nWHERE\n${whereClause}\nRETURNING *;`;
+      }
+
+      const mutable = available.filter(column =>
+        !column.is_primary_key
+        && column.is_identity !== "YES"
+        && column.is_generated === "NEVER"
+      );
+      if (!mutable.length) {
+        return `${warning}\n-- Cette table ne possède aucune colonne modifiable hors clé primaire / colonnes générées.\n-- Utilise éventuellement le DELETE proposé depuis la grille.`;
+      }
+      const setClause = mutable.map(column =>
+        `  ${quoteIdent(column.column_name)} = ${sqlLiteralForColumn(row[column.column_name], column)}`
+      ).join(",\n");
+      return `${warning}\n-- Les valeurs actuelles sont préremplies : modifie uniquement celles que tu veux changer.\nUPDATE ${qualify(source.schema, source.table)}\nSET\n${setClause}\nWHERE\n${whereClause}\nRETURNING *;`;
+    }
+
+    function showResultRowMenu(event, source, row, rowIndex) {
+      showContextMenu(event, [
+        { icon: "✎", label: "Éditer cette ligne…", action: async () => openSqlInNewTab(await buildRowMutationScript(source, row, "update"), `UPDATE ${source.table} — ligne ${rowIndex + 1}`) },
+        { icon: "⌫", label: "Supprimer cette ligne…", danger: true, action: async () => openSqlInNewTab(await buildRowMutationScript(source, row, "delete"), `DELETE ${source.table} — ligne ${rowIndex + 1}`) },
+      ], `${source.schema}.${source.table} · ligne ${rowIndex + 1}`);
+    }
+
+    function showContextMenu(event, items, title = "Actions") {
+      event.preventDefault();
+      event.stopPropagation();
+      hideContextMenu();
+      const menu = elements.contextMenu;
+      menu.innerHTML = "";
+
+      const heading = document.createElement("div");
+      heading.className = "context-menu-title";
+      heading.textContent = title;
+      menu.appendChild(heading);
+
+      for (const item of items) {
+        if (item.separator) {
+          const separator = document.createElement("div");
+          separator.className = "context-menu-separator";
+          menu.appendChild(separator);
+          continue;
+        }
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `context-menu-item${item.danger ? " danger" : ""}`;
+        button.disabled = Boolean(item.disabled);
+        button.innerHTML = `<span class="context-menu-icon">${escapeHtml(item.icon || "")}</span><span class="context-menu-label">${escapeHtml(item.label)}</span>${item.hint ? `<span class="context-menu-hint">${escapeHtml(item.hint)}</span>` : ""}`;
+        button.addEventListener("click", async () => {
+          hideContextMenu();
+          try {
+            await item.action?.();
+          } catch (error) {
+            console.error(error);
+            renderError(error);
+            setStatus("error", "Action impossible", friendlyError(error).split("\n")[0]);
+          }
+        });
+        menu.appendChild(button);
+      }
+
+      menu.classList.add("visible");
+      menu.setAttribute("aria-hidden", "false");
+      const width = menu.offsetWidth;
+      const height = menu.offsetHeight;
+      const left = Math.min(event.clientX, window.innerWidth - width - 8);
+      const top = Math.min(event.clientY, window.innerHeight - height - 8);
+      menu.style.left = `${Math.max(6, left)}px`;
+      menu.style.top = `${Math.max(6, top)}px`;
+    }
+
+    function hideContextMenu() {
+      elements.contextMenu.classList.remove("visible");
+      elements.contextMenu.setAttribute("aria-hidden", "true");
+    }
+
+    function createInternalFaker(initialSeed = 1) {
+      let seedValue = (Number(initialSeed) || 1) >>> 0;
+      const firstNames = ["Alice", "Amélie", "Camille", "Chloé", "Élodie", "Emma", "Inès", "Julie", "Léa", "Manon", "Nicolas", "Thomas", "Lucas", "Hugo", "Louis", "Arthur", "Gabriel", "Mathis", "Jules", "Benjamin"];
+      const lastNames = ["Martin", "Bernard", "Dubois", "Thomas", "Robert", "Richard", "Petit", "Durand", "Leroy", "Moreau", "Simon", "Laurent", "Lefebvre", "Michel", "Garcia", "David", "Bertrand", "Roux", "Vincent", "Fournier"];
+      const cities = ["Valenciennes", "Lille", "Paris", "Lyon", "Nantes", "Bordeaux", "Toulouse", "Strasbourg", "Rennes", "Reims", "Amiens", "Roubaix"];
+      const countries = ["France", "Belgique", "Suisse", "Luxembourg", "Espagne", "Italie", "Allemagne"];
+      const companyRoots = ["Nova", "Hexa", "Aster", "Orion", "Atlas", "Nexa", "Alto", "Synergie", "Horizon", "Vertex"];
+      const companySuffixes = ["Conseil", "Systems", "Solutions", "Services", "Industries", "Digital", "Partners", "Technologies"];
+      const wordsList = ["architecture", "service", "client", "contrat", "dossier", "solution", "plateforme", "processus", "donnée", "projet", "référence", "système", "gestion", "analyse", "produit", "équipe", "activité", "opération"];
+      const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+      const random = () => {
+        seedValue = (seedValue + 0x6D2B79F5) >>> 0;
+        let t = seedValue;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+      const int = ({ min = 0, max = 999 } = {}) => Math.floor(random() * (max - min + 1)) + min;
+      const pick = values => values[Math.max(0, Math.min(values.length - 1, int({ min: 0, max: values.length - 1 })) )];
+      const stringFrom = (alphabet, length) => Array.from({ length }, () => alphabet[int({ min: 0, max: alphabet.length - 1 })]).join("");
+      const words = (options = { min: 1, max: 4 }) => {
+        const count = typeof options === "number" ? options : int({ min: options.min ?? 1, max: options.max ?? options.min ?? 4 });
+        return Array.from({ length: count }, () => pick(wordsList)).join(" ");
+      };
+      const firstName = () => pick(firstNames);
+      const lastName = () => pick(lastNames);
+
+      const api = {
+        seed(value) { seedValue = (Number(value) || 1) >>> 0; },
+        helpers: { arrayElement: values => pick(values) },
+        number: {
+          int,
+          float({ min = 0, max = 1000, fractionDigits = 2 } = {}) {
+            return Number((min + random() * (max - min)).toFixed(fractionDigits));
+          },
+        },
+        datatype: { boolean: () => random() >= .5 },
+        string: {
+          uuid() {
+            const hex = "0123456789abcdef";
+            const part = n => stringFrom(hex, n);
+            return `${part(8)}-${part(4)}-4${part(3)}-${pick(["8", "9", "a", "b"])}${part(3)}-${part(12)}`;
+          },
+          alpha(options = {}) {
+            const length = typeof options === "number" ? options : options.length ?? 1;
+            const value = stringFrom("abcdefghijklmnopqrstuvwxyz", length);
+            return options.casing === "upper" ? value.toUpperCase() : value;
+          },
+          numeric(options = 1) {
+            const length = typeof options === "number" ? options : options.length ?? 1;
+            return stringFrom("0123456789", length);
+          },
+          alphanumeric(options = {}) {
+            const length = typeof options === "number" ? options : options.length ?? 1;
+            return stringFrom(chars, length);
+          },
+        },
+        date: {
+          between({ from, to }) {
+            const start = new Date(from).getTime();
+            const end = new Date(to).getTime();
+            return new Date(start + Math.floor(random() * Math.max(1, end - start)));
+          },
+        },
+        lorem: {
+          words,
+          sentence(options = { min: 3, max: 7 }) {
+            const value = words(options);
+            return `${value.charAt(0).toUpperCase()}${value.slice(1)}.`;
+          },
+          paragraph() {
+            return Array.from({ length: int({ min: 2, max: 4 }) }, () => api.lorem.sentence({ min: 5, max: 12 })).join(" ");
+          },
+        },
+        person: { firstName, lastName, fullName: () => `${firstName()} ${lastName()}` },
+        internet: {
+          username() {
+            return `${firstName()}.${lastName()}${int({ min: 1, max: 999 })}`
+              .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]/g, "");
+          },
+          url: () => `https://www.${pick(companyRoots).toLowerCase()}-${pick(companySuffixes).toLowerCase()}.example`,
+          ipv4: () => `${int({ min: 10, max: 223 })}.${int({ min: 0, max: 255 })}.${int({ min: 0, max: 255 })}.${int({ min: 1, max: 254 })}`,
+          mac: () => Array.from({ length: 6 }, () => int({ min: 0, max: 255 }).toString(16).padStart(2, "0")).join(":"),
+        },
+        phone: { number: () => `0${pick(["6", "7"])} ${stringFrom("0123456789", 2)} ${stringFrom("0123456789", 2)} ${stringFrom("0123456789", 2)} ${stringFrom("0123456789", 2)}` },
+        finance: {
+          iban: () => `FR76${stringFrom("0123456789", 23)}`,
+          bic: () => `${stringFrom("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 6)}${stringFrom("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 2)}`,
+        },
+        company: { name: () => `${pick(companyRoots)} ${pick(companySuffixes)}` },
+        location: {
+          streetAddress: () => `${int({ min: 1, max: 199 })} ${pick(["rue", "avenue", "boulevard", "place"])} ${pick(lastNames)}`,
+          city: () => pick(cities),
+          country: () => pick(countries),
+          zipCode: () => stringFrom("0123456789", 5),
+        },
+        commerce: { price: ({ min = 1, max = 1000, dec = 2 } = {}) => (min + random() * (max - min)).toFixed(dec) },
+      };
+      return api;
+    }
+
+    function showFakeDataDialog(schema, table) {
+      showModal({
+        title: `Générer des données fictives — ${schema}.${table}`,
+        confirmLabel: "Générer le SQL",
+        bodyHtml: `
+          <p>Le générateur analyse les colonnes, les types, les valeurs autorisées et les clés étrangères. Il produit un script <code>INSERT</code> dans un nouvel onglet sans l’exécuter automatiquement.</p>
+          <div class="modal-form-grid">
+            <div class="modal-field">
+              <label for="fakeCountInput">Nombre de lignes</label>
+              <input class="modal-input" id="fakeCountInput" type="number" min="1" max="5000" step="1" value="25" />
+            </div>
+            <div class="modal-field">
+              <label for="fakeSeedInput">Graine reproductible</label>
+              <input class="modal-input" id="fakeSeedInput" type="number" step="1" value="23051988" />
+            </div>
+          </div>
+          <div class="modal-help">La génération est entièrement locale et ne dépend plus d’un chargement Faker externe. Pour une clé étrangère obligatoire, la table parente doit déjà contenir au moins une valeur.</div>
+        `,
+        onConfirm: async () => {
+          const count = Number.parseInt($("fakeCountInput")?.value || "", 10);
+          const seed = Number.parseInt($("fakeSeedInput")?.value || "", 10) || 1;
+          if (!Number.isFinite(count) || count < 1 || count > 5000) {
+            throw new Error("Le nombre de lignes doit être compris entre 1 et 5 000.");
+          }
+          setBusy(true, "Analyse de la table et génération des données fictives…");
+          try {
+            const sql = await generateFakeInsertSql(schema, table, count, seed);
+            openSqlInNewTab(sql, `Fake ${table} × ${count}`);
+            setStatus("ready", "Fake data générées", `${count} ligne(s) générée(s) dans un nouvel onglet`);
+            closeModal();
+          } finally {
+            setBusy(false);
+          }
+        },
+      });
+    }
+
+    function normalizePgArray(value) {
+      if (Array.isArray(value)) return value;
+      if (value == null) return null;
+      if (typeof value !== "string") return [value];
+      if (!value.startsWith("{") || !value.endsWith("}")) return [value];
+      const body = value.slice(1, -1);
+      if (!body) return [];
+      return body.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/)
+        .map(item => item.replace(/^\"|\"$/g, "").replace(/\\\"/g, '"'));
+    }
+
+    async function generateFakeInsertSql(schema, table, count, seed) {
+      const faker = createInternalFaker(seed);
+      state.faker = faker;
+      state.fakerSource = "générateur local intégré";
+      const { columns } = await getTableMetadata(schema, table);
+      if (!columns.length) throw new Error(`La table ${schema}.${table} n’existe plus ou ne contient aucune colonne exploitable.`);
+
+      const insertColumns = columns.filter(column => !isAutoGeneratedColumn(column) && !column.column_default);
+      if (!insertColumns.length) {
+        return `-- Générateur : ${state.fakerSource}\n-- Toutes les colonnes utilisent une identité, une expression générée ou une valeur par défaut.\n${Array.from({ length: count }, () => `INSERT INTO ${qualify(schema, table)} DEFAULT VALUES;`).join("\n")}`;
+      }
+
+      const foreignPools = new Map();
+      for (const column of insertColumns.filter(column => column.foreign_key)) {
+        const fk = column.foreign_key;
+        const result = await state.db.query(
+          `SELECT DISTINCT ${quoteIdent(fk.foreign_column)} AS value
+           FROM ${qualify(fk.foreign_schema, fk.foreign_table)}
+           WHERE ${quoteIdent(fk.foreign_column)} IS NOT NULL
+           LIMIT 2000;`
+        );
+        const values = result.rows.map(row => row.value);
+        foreignPools.set(column.column_name, values);
+        if (!values.length && column.is_nullable !== "YES") {
+          throw new Error(`La clé étrangère obligatoire ${column.column_name} référence ${fk.foreign_schema}.${fk.foreign_table}, mais cette table parente ne contient aucune valeur. Génère d’abord les données parentes.`);
+        }
+      }
+
+      const tuples = [];
+      for (let rowIndex = 0; rowIndex < count; rowIndex += 1) {
+        const values = insertColumns.map(column => {
+          const generated = enforceColumnLimits(
+            fakeValueForColumn(column, rowIndex, foreignPools.get(column.column_name), faker),
+            column
+          );
+          return sqlLiteralForColumn(generated, column);
+        });
+        tuples.push(`  (${values.join(", ")})`);
+      }
+
+      const warnings = insertColumns
+        .filter(column => column.foreign_key)
+        .map(column => `-- FK ${column.column_name} alimentée depuis ${column.foreign_key.foreign_schema}.${column.foreign_key.foreign_table}.${column.foreign_key.foreign_column}`)
+        .join("\n");
+
+      return `-- Données fictives générées localement\n-- Générateur : ${state.fakerSource}\n-- Table : ${schema}.${table}\n-- Lignes : ${count}\n-- Seed : ${seed}\n-- Relis ce script avant exécution : les valeurs sont déduites des noms, types et contraintes visibles dans PostgreSQL.\n${warnings ? `${warnings}\n` : ""}\nINSERT INTO ${qualify(schema, table)} (\n${insertColumns.map(column => `  ${quoteIdent(column.column_name)}`).join(",\n")}\n) VALUES\n${tuples.join(",\n")}\nRETURNING *;`;
+    }
+
+    function enforceColumnLimits(value, column) {
+      if (typeof value === "string" && Number(column.character_maximum_length) > 0) {
+        return value.slice(0, Number(column.character_maximum_length));
+      }
+      return value;
+    }
+
+    function fakeValueForColumn(column, rowIndex, foreignPool, faker) {
+      if (foreignPool) {
+        if (!foreignPool.length) return null;
+        return faker.helpers.arrayElement(foreignPool);
+      }
+      const enumValues = normalizePgArray(column.enum_values);
+      const checkValues = normalizePgArray(column.check_values);
+      if (enumValues?.length) return faker.helpers.arrayElement(enumValues);
+      if (checkValues?.length) return faker.helpers.arrayElement(checkValues);
+      if (column.is_nullable === "YES" && faker.number.int({ min: 1, max: 100 }) <= 7) return null;
+
+      const name = column.column_name.toLowerCase();
+      const type = String(column.udt_name || column.data_type || "").toLowerCase();
+      const uniqueSuffix = column.is_unique ? `-${rowIndex + 1}` : "";
+
+      if (["bool", "boolean"].includes(type)) return faker.datatype.boolean();
+      if (["int2", "smallint"].includes(type)) return column.is_unique ? rowIndex + 1 : faker.number.int({ min: 1, max: 30000 });
+      if (["int4", "integer"].includes(type)) return column.is_unique ? rowIndex + 1 : faker.number.int({ min: 1, max: 1_000_000 });
+      if (["int8", "bigint"].includes(type)) return column.is_unique ? rowIndex + 1 : faker.number.int({ min: 1, max: 9_000_000 });
+      if (["numeric", "decimal", "float4", "float8", "real", "double precision", "money"].includes(type)) {
+        const scale = Math.min(Number(column.numeric_scale) || 2, 6);
+        return faker.number.float({ min: 0, max: 100000, fractionDigits: scale });
+      }
+      if (type === "uuid") return faker.string.uuid();
+      if (type === "date") return faker.date.between({ from: "2020-01-01", to: "2028-12-31" });
+      if (type.includes("timestamp")) return faker.date.between({ from: "2020-01-01", to: "2028-12-31" });
+      if (type === "time" || type === "timetz") return `${String(faker.number.int({ min: 0, max: 23 })).padStart(2, "0")}:${String(faker.number.int({ min: 0, max: 59 })).padStart(2, "0")}:${String(faker.number.int({ min: 0, max: 59 })).padStart(2, "0")}`;
+      if (type === "interval") return `${faker.number.int({ min: 1, max: 30 })} days`;
+      if (["json", "jsonb"].includes(type)) return { generated: true, index: rowIndex + 1, label: faker.lorem.words({ min: 2, max: 5 }) };
+      if (type === "xml") return `<generated index="${rowIndex + 1}">${faker.lorem.words({ min: 2, max: 5 })}</generated>`;
+      if (type === "bytea") return Uint8Array.from({ length: 12 }, () => faker.number.int({ min: 0, max: 255 }));
+      if (type.startsWith("_") || column.data_type === "ARRAY") return [];
+      if (["inet", "cidr"].includes(type)) return faker.internet.ipv4();
+      if (type === "macaddr" || type === "macaddr8") return faker.internet.mac();
+
+      if (/e-?mail/.test(name)) return `${faker.internet.username().toLowerCase()}${uniqueSuffix}@example.test`;
+      if (/first.?name|prenom/.test(name)) return faker.person.firstName();
+      if (/last.?name|surname|nom_famille/.test(name)) return faker.person.lastName();
+      if (/full.?name|display.?name|(^|_)name$|^nom$/.test(name)) return `${faker.person.fullName()}${uniqueSuffix}`;
+      if (/user.?name|login/.test(name)) return `${faker.internet.username()}${uniqueSuffix}`;
+      if (/phone|mobile|telephone|tel$/.test(name)) return faker.phone.number();
+      if (/iban|bank.?account/.test(name)) return faker.finance.iban();
+      if (/bic|swift/.test(name)) return faker.finance.bic();
+      if (/company|organisation|organization|societe|raison_sociale/.test(name)) return `${faker.company.name()}${uniqueSuffix}`;
+      if (/address|adresse/.test(name)) return faker.location.streetAddress();
+      if (/city|ville/.test(name)) return faker.location.city();
+      if (/country|pays/.test(name)) return faker.location.country();
+      if (/zip|postal/.test(name)) return faker.location.zipCode();
+      if (/url|website|site_web/.test(name)) return faker.internet.url();
+      if (/title|titre|subject|objet/.test(name)) return `${faker.lorem.sentence({ min: 3, max: 7 }).replace(/\.$/, "")}${uniqueSuffix}`;
+      if (/description|comment|note|message|content|contenu/.test(name)) return faker.lorem.paragraph();
+      if (/status|statut|state|etat/.test(name)) return faker.helpers.arrayElement(["ACTIVE", "PENDING", "INACTIVE", "DRAFT"]);
+      if (/code|reference|ref$|identifier/.test(name)) return `${faker.string.alpha({ length: 4, casing: "upper" })}-${faker.string.numeric(6)}${uniqueSuffix}`;
+      if (/amount|price|cost|total|montant|prix/.test(name)) return faker.commerce.price({ min: 1, max: 10000, dec: 2 });
+      if (/password|secret|token/.test(name)) return faker.string.alphanumeric({ length: 24 });
+      return `${faker.lorem.words({ min: 1, max: 4 })}${uniqueSuffix}`;
+    }
+
+    function qualifiedType(column) {
+      const typeName = column.udt_name || column.data_type;
+      const schemaName = column.udt_schema;
+      return schemaName && schemaName !== "pg_catalog"
+        ? `${quoteIdent(schemaName)}.${quoteIdent(typeName)}`
+        : quoteIdent(typeName);
+    }
+
+    function sqlLiteralForColumn(value, column) {
+      const type = String(column.udt_name || column.data_type || "").toLowerCase();
+      if (value === null || value === undefined) return "NULL";
+      if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
+      if (typeof value === "number" || typeof value === "bigint") return String(value);
+      if (["numeric", "decimal", "money"].includes(type) && /^-?\d+(\.\d+)?$/.test(String(value))) return String(value);
+      if (value instanceof Date) {
+        if (type === "date") return `${sqlString(value.toISOString().slice(0, 10))}::date`;
+        return `${sqlString(value.toISOString())}::${type.includes("tz") ? "timestamptz" : "timestamp"}`;
+      }
+      if (value instanceof Uint8Array) {
+        const hex = [...value].map(byte => byte.toString(16).padStart(2, "0")).join("");
+        return `decode('${hex}', 'hex')`;
+      }
+      if (["json", "jsonb"].includes(type)) return `${sqlString(JSON.stringify(value))}::${type}`;
+      if (Array.isArray(value)) return `ARRAY[]::${type.replace(/^_/, "")}[]`;
+      if (column.enum_values?.length) return `${sqlString(value)}::${qualifiedType(column)}`;
+      if (type === "uuid") return `${sqlString(value)}::uuid`;
+      if (["inet", "cidr", "macaddr", "macaddr8", "date", "time", "timetz"].includes(type)) return `${sqlString(value)}::${type}`;
+      return sqlString(value);
+    }
+
+    function sqlString(value) {
+      return `'${String(value).replaceAll("'", "''")}'`;
+    }
+
+    function getSqlToRun() {
+      const selected = state.editor.getSelection().trim();
+      return selected || state.editor.getValue().trim();
+    }
+
+    async function runSql() {
+      if (state.running || !state.db) return;
+      const sql = getSqlToRun();
+      if (!sql) {
+        renderMessage("Aucune requête", "Écris ou sélectionne une instruction SQL avant de lancer l’exécution.");
+        return;
+      }
+
+      const tab = activeTab();
+      if (!tab) return;
+      const started = performance.now();
+      setBusy(true, "Exécution de la requête…");
+      setStatus("", "Requête en cours…", "Exécution SQL en cours…");
+
+      try {
+        await ensureActiveTabIsolation("l’exécution SQL");
+        const ownsOpenTransaction = state.transactionOwnerTabId === tab.id && tab.transactionState === "open";
+        const transactionAnalysis = analyzeTransactionControl(sql, ownsOpenTransaction);
+        let results;
+
+        if (ownsOpenTransaction || transactionAnalysis.explicit || !state.atomicMode) {
+          results = await state.rawDb.exec(sql);
+        } else {
+          results = await state.rawDb.transaction(async transaction => transaction.exec(sql));
+        }
+
+        if (transactionAnalysis.open) {
+          state.transactionOwnerTabId = tab.id;
+          tab.transactionState = "open";
+          tab.transactionMessage = "Transaction manuelle ouverte dans cet onglet.";
+        } else if (state.transactionOwnerTabId === tab.id || transactionAnalysis.explicit) {
+          state.transactionOwnerTabId = null;
+          tab.transactionState = "idle";
+          tab.transactionMessage = "";
+        } else {
+          tab.transactionState = "idle";
+          tab.transactionMessage = "";
+        }
+
+        const duration = performance.now() - started;
+        state.results = results;
+        const lastTabularResult = typeof results.findLastIndex === "function"
+          ? results.findLastIndex(result => Array.isArray(result.rows) && result.rows.length)
+          : results.map(result => Array.isArray(result.rows) && result.rows.length).lastIndexOf(true);
+        state.activeResult = lastTabularResult >= 0 ? lastTabularResult : Math.max(0, results.length - 1);
+        tab.sql = state.editor.getValue();
+        tab.results = results;
+        tab.activeResult = state.activeResult;
+        tab.duration = duration;
+        tab.lastExecutedSql = sql;
+        tab.resultSources = Array.from({ length: results.length }, () => null);
+        const directSource = tab.sourceTable?.type === "table"
+          && tab.sourceQuerySql
+          && normalizeSqlForSource(sql) === normalizeSqlForSource(tab.sourceQuerySql)
+            ? tab.sourceTable
+            : inferSimpleSelectSource(sql);
+        if (directSource && lastTabularResult >= 0) {
+          tab.resultSources[lastTabularResult] = directSource;
+        }
+        renderResults(duration);
+        await refreshExplorer();
+        renderQueryTabs();
+        updateTransactionUi();
+        persistTabs();
+        setStatus(
+          "ready",
+          tab.transactionState === "open" ? "Transaction ouverte" : "Base locale prête",
+          tab.transactionState === "open"
+            ? `Transaction réservée à « ${tab.title} » — rollback automatique en cas d’erreur ou d’accès depuis un autre onglet`
+            : `Exécution atomique terminée en ${formatDuration(duration)}`
+        );
+      } catch (error) {
+        const duration = performance.now() - started;
+        console.error(error);
+        const sqlError = error instanceof Error ? error : new Error(String(error));
+        const hadManualTransaction = state.transactionOwnerTabId === tab.id || tab.transactionState === "open" || analyzeTransactionControl(sql, false).explicit;
+        await rollbackPhysicalTransaction(
+          tab.id,
+          hadManualTransaction
+            ? "Rollback automatique : une erreur SQL a interrompu la transaction de cet onglet."
+            : "Rollback automatique : le lot SQL atomique a échoué, aucune modification du lot n’a été conservée."
+        );
+        sqlError.studioRollbackMessage = state.atomicMode || hadManualTransaction
+          ? "Rollback automatique effectué : aucune transaction en échec ne reste ouverte."
+          : "Rollback de sécurité effectué. Le mode Atomicité auto était désactivé : des instructions précédentes peuvent avoir été validées individuellement.";
+        state.results = [];
+        tab.results = [];
+        tab.resultSources = [];
+        tab.lastExecutedSql = sql;
+        tab.duration = duration;
+        renderError(sqlError);
+        renderQueryTabs();
+        updateTransactionUi();
+        setStatus("error", "Erreur SQL · rollback effectué", `Échec après ${formatDuration(duration)} — connexion nettoyée`);
+      } finally {
+        setBusy(false);
+        state.editor.focus();
+      }
+    }
+
+    function formatDuration(ms) {
+      return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(2)} s`;
+    }
+
+    function resultLabel(result, index) {
+      const rowCount = result?.rows?.length || 0;
+      const affected = result?.affectedRows || 0;
+      if (rowCount) return `Résultat ${index + 1} · ${rowCount.toLocaleString("fr-FR")} ligne(s)`;
+      if (affected) return `Résultat ${index + 1} · ${affected.toLocaleString("fr-FR")} modifiée(s)`;
+      return `Résultat ${index + 1}`;
+    }
+
+    function renderResults(duration) {
+      elements.resultTabs.innerHTML = "";
+      if (!state.results.length) {
+        renderMessage("Instruction exécutée", "PostgreSQL n’a retourné aucun jeu de résultat.", "success");
+        elements.resultMeta.textContent = formatDuration(duration);
+        elements.exportCsvBtn.disabled = true;
+        return;
+      }
+
+      state.results.forEach((result, index) => {
+        const button = document.createElement("button");
+        button.className = `result-tab${index === state.activeResult ? " active" : ""}`;
+        button.textContent = resultLabel(result, index);
+        button.addEventListener("click", () => {
+          state.activeResult = index;
+          const tab = activeTab();
+          if (tab) tab.activeResult = index;
+          renderActiveResult();
+          for (const [tabIndex, tabNode] of [...elements.resultTabs.children].entries()) {
+            tabNode.classList.toggle("active", tabIndex === index);
+          }
+        });
+        elements.resultTabs.appendChild(button);
+      });
+
+      elements.resultMeta.textContent = `${state.results.length} résultat(s) · ${formatDuration(duration)}`;
+      renderActiveResult();
+    }
+
+    function renderActiveResult() {
+      const result = state.results[state.activeResult];
+      if (!result) {
+        renderMessage("Aucun résultat", "La requête n’a retourné aucun résultat exploitable.");
+        elements.exportCsvBtn.disabled = true;
+        return;
+      }
+
+      const rows = Array.isArray(result.rows) ? result.rows : [];
+      const fields = result.fields?.map(field => field.name) || (rows[0] ? Object.keys(rows[0]) : []);
+
+      if (!rows.length || !fields.length) {
+        const affected = result.affectedRows ?? 0;
+        renderMessage(
+          "Instruction exécutée avec succès",
+          affected ? `${affected.toLocaleString("fr-FR")} ligne(s) modifiée(s).` : "Aucune ligne retournée.",
+          "success"
+        );
+        elements.exportCsvBtn.disabled = true;
+        return;
+      }
+
+      const displayedRows = rows.slice(0, MAX_RENDERED_ROWS);
+      const source = activeEditableResultSource();
+      const actionHead = source ? '<th class="row-actions-col" title="Actions sur la ligne">⋮</th>' : '';
+      const head = `<tr><th class="row-number">#</th>${actionHead}${fields.map(field => `<th>${escapeHtml(field)}</th>`).join("")}</tr>`;
+      const body = displayedRows.map((row, index) => {
+        const actionCell = source
+          ? `<td class="row-actions-col"><button class="row-actions-btn" type="button" data-row-action="${index}" title="Modifier ou supprimer cette ligne" aria-label="Actions sur la ligne ${index + 1}">⋮</button></td>`
+          : "";
+        return `<tr data-row-index="${index}"${source ? ' class="row-actionable" title="Clic droit : générer UPDATE ou DELETE"' : ''}><td class="row-number">${index + 1}</td>${actionCell}${fields.map(field => `<td>${formatCell(row[field])}</td>`).join("")}</tr>`;
+      }).join("");
+      const truncation = rows.length > MAX_RENDERED_ROWS
+        ? `<div class="message-panel">Affichage limité aux ${MAX_RENDERED_ROWS.toLocaleString("fr-FR")} premières lignes sur ${rows.length.toLocaleString("fr-FR")}.</div>`
+        : "";
+
+      elements.resultsBody.innerHTML = `<table class="data-table"><thead>${head}</thead><tbody>${body}</tbody></table>${truncation}<div class="loading-overlay" id="loadingOverlay"><div class="loader-card"><span class="spinner"></span><span id="loadingText">Exécution en cours…</span></div></div>`;
+      rebindLoadingElements();
+      if (source) {
+        const tbody = elements.resultsBody.querySelector(".data-table tbody");
+        const openMenuForEvent = event => {
+          const rowNode = event.target.closest("tr[data-row-index]");
+          if (!rowNode || !tbody?.contains(rowNode)) return;
+          const index = Number(rowNode.dataset.rowIndex);
+          if (!Number.isInteger(index) || !displayedRows[index]) return;
+          showResultRowMenu(event, source, displayedRows[index], index);
+        };
+        tbody?.addEventListener("contextmenu", openMenuForEvent);
+        tbody?.addEventListener("click", event => {
+          if (!event.target.closest("[data-row-action]")) return;
+          openMenuForEvent(event);
+        });
+        elements.resultMeta.textContent += " · clic droit ou bouton ⋮ pour modifier/supprimer";
+      }
+      elements.exportCsvBtn.disabled = false;
+    }
+
+    function formatCell(value) {
+      if (value === null || value === undefined) return '<span class="null-value">NULL</span>';
+      if (typeof value === "boolean") return `<span class="bool-value">${value}</span>`;
+      if (typeof value === "number" || typeof value === "bigint") return `<span class="number-value">${escapeHtml(value.toString())}</span>`;
+      if (value instanceof Date) return escapeHtml(value.toISOString());
+      if (value instanceof Uint8Array) return `<span class="json-value">\\x${[...value].map(byte => byte.toString(16).padStart(2, "0")).join("")}</span>`;
+      if (typeof value === "object") {
+        let json;
+        try { json = JSON.stringify(value, (_, nested) => typeof nested === "bigint" ? nested.toString() : nested, 2); }
+        catch { json = String(value); }
+        return `<span class="json-value">${escapeHtml(json)}</span>`;
+      }
+      return escapeHtml(value);
+    }
+
+    function renderEmptyTab() {
+      elements.resultTabs.innerHTML = '<button class="result-tab active">Résultats</button>';
+      elements.resultsBody.innerHTML = `
+        <div class="message-panel">
+          <div class="message-title">Onglet prêt</div>
+          <div>Écris une requête, sélectionne éventuellement une partie du SQL, puis lance avec Ctrl + Entrée.</div>
+        </div>
+        <div class="loading-overlay" id="loadingOverlay"><div class="loader-card"><span class="spinner"></span><span id="loadingText">Exécution en cours…</span></div></div>
+      `;
+      rebindLoadingElements();
+      elements.resultMeta.textContent = "Aucune exécution";
+      elements.exportCsvBtn.disabled = true;
+    }
+
+    function renderMessage(title, message, kind = "") {
+      elements.resultTabs.innerHTML = '<button class="result-tab active">Messages</button>';
+      elements.resultsBody.innerHTML = `
+        <div class="message-panel ${kind}">
+          <div class="message-title">${escapeHtml(title)}</div>
+          <div>${escapeHtml(message)}</div>
+        </div>
+        <div class="loading-overlay" id="loadingOverlay"><div class="loader-card"><span class="spinner"></span><span id="loadingText">Exécution en cours…</span></div></div>
+      `;
+      rebindLoadingElements();
+    }
+
+    function renderError(error, initialization = false) {
+      const extra = initialization
+        ? `<div>Essaie d’ouvrir ce fichier depuis un petit serveur HTTP local si Chrome refuse les modules ou le WebAssembly avec <code>file://</code>.</div>`
+        : "";
+      elements.resultTabs.innerHTML = '<button class="result-tab active">Erreur</button>';
+      elements.resultsBody.innerHTML = `
+        <div class="message-panel error">
+          <div class="message-title">${initialization ? "PGlite n’a pas pu démarrer" : "PostgreSQL a refusé la requête"}</div>
+          ${extra}
+          <div class="error-box">${escapeHtml(friendlyError(error))}</div>
+          ${error?.studioRollbackMessage ? `<div class="modal-help" style="margin-top:12px">${escapeHtml(error.studioRollbackMessage)}</div>` : ""}
+        </div>
+        <div class="loading-overlay" id="loadingOverlay"><div class="loader-card"><span class="spinner"></span><span id="loadingText">Exécution en cours…</span></div></div>
+      `;
+      rebindLoadingElements();
+      elements.resultMeta.textContent = "Erreur";
+      elements.exportCsvBtn.disabled = true;
+    }
+
+    function rebindLoadingElements() {
+      elements.loadingOverlay = $("loadingOverlay");
+      elements.loadingText = $("loadingText");
+    }
+
+    function showDemoDialog() {
+      showModal({
+        title: "Créer un exemple guidé",
+        confirmLabel: "Créer l’exemple",
+        bodyHtml: `
+          <p>Cette action sert uniquement à vérifier rapidement que PGlite Studio fonctionne correctement.</p>
+          <div class="modal-help">
+            Elle crée un schéma isolé <code>studio_demo</code>, deux tables (<code>customer</code> et <code>sales_order</code>), quelques lignes, puis ouvre et exécute une requête de synthèse. Tes propres tables ne sont pas modifiées.
+          </div>
+        `,
+        onConfirm: async () => {
+          closeModal();
+          await loadDemoData();
+        },
+      });
+    }
+
+    async function loadDemoData() {
+      if (!state.db || state.running) return;
+      const demoSql = `
+CREATE SCHEMA IF NOT EXISTS studio_demo;
+
+CREATE TABLE IF NOT EXISTS studio_demo.customer (
+  customer_id BIGSERIAL PRIMARY KEY,
+  full_name TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  segment TEXT NOT NULL CHECK (segment IN ('Retail', 'Premium', 'Corporate')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS studio_demo.sales_order (
+  order_id BIGSERIAL PRIMARY KEY,
+  order_ref TEXT UNIQUE NOT NULL,
+  customer_id BIGINT NOT NULL REFERENCES studio_demo.customer(customer_id),
+  order_date DATE NOT NULL DEFAULT current_date,
+  amount NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
+  status TEXT NOT NULL DEFAULT 'Pending'
+);
+
+INSERT INTO studio_demo.customer (full_name, email, segment)
+VALUES
+  ('Alice Martin', 'alice@example.test', 'Premium'),
+  ('Benoît Leroy', 'benoit@example.test', 'Retail'),
+  ('Carla Moreau', 'carla@example.test', 'Corporate')
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO studio_demo.sales_order (order_ref, customer_id, order_date, amount, status)
+SELECT source.order_ref, customer.customer_id, source.order_date, source.amount, source.status
+FROM (VALUES
+  ('DEMO-001', 'alice@example.test', current_date - 12, 1490.00::numeric, 'Paid'),
+  ('DEMO-002', 'alice@example.test', current_date - 3, 349.90::numeric, 'Pending'),
+  ('DEMO-003', 'benoit@example.test', current_date - 8, 78.50::numeric, 'Paid'),
+  ('DEMO-004', 'carla@example.test', current_date - 1, 8240.00::numeric, 'Review')
+) AS source(order_ref, customer_email, order_date, amount, status)
+JOIN studio_demo.customer customer ON customer.email = source.customer_email
+ON CONFLICT (order_ref) DO NOTHING;
+`;
+
+      setBusy(true, "Création de l’exemple guidé…");
+      try {
+        await state.db.exec(demoSql);
+        await refreshExplorer();
+        const query = `SELECT
+  c.customer_id,
+  c.full_name,
+  c.segment,
+  COUNT(o.order_id) AS order_count,
+  COALESCE(SUM(o.amount), 0) AS total_amount
+FROM studio_demo.customer c
+LEFT JOIN studio_demo.sales_order o ON o.customer_id = c.customer_id
+GROUP BY c.customer_id, c.full_name, c.segment
+ORDER BY total_amount DESC;`;
+        openSqlInNewTab(query, "Exemple studio_demo");
+        setBusy(false);
+        await runSql();
+      } catch (error) {
+        renderError(error);
+        setStatus("error", "Erreur de l’exemple", "Impossible de créer l’exemple guidé");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function exportSqlDump({ mode = "full", schema = null, table = null } = {}) {
+      if (!state.db || state.running) return;
+      const scope = table ? `${table.schema}.${table.name}` : schema || state.databaseName;
+      const labels = { schema: "structure", data: "données", full: "complet" };
+      const safeScope = scope.replace(/[^a-zA-Z0-9._-]+/g, "-");
+      const fileName = `pglite-${safeScope}-${labels[mode]}-${new Date().toISOString().slice(0, 10)}.sql`;
+      const tabTitle = `Dump ${scope} — ${labels[mode]}`;
+      const args = ["--no-owner", "--no-privileges", "--column-inserts"];
+      if (mode === "schema") args.push("--schema-only");
+      if (mode === "data") args.push("--data-only");
+      if (schema) args.push(`--schema=${quoteIdent(schema)}`);
+      if (table) args.push(`--table=${quoteIdent(table.schema)}.${quoteIdent(table.name)}`);
+
+      setBusy(true, `Génération du dump SQL ${labels[mode]}…`);
+      setStatus("", "Dump SQL en cours…", `Exécution de pg_dump sur ${scope}`);
+      try {
+        const file = await pgDump({ pg: state.db, args, fileName });
+        const sql = await file.text();
+        openSqlInNewTab(sql, tabTitle);
+        downloadBlob(file, fileName);
+        setStatus("ready", "Dump SQL ouvert", `${tabTitle} ouvert dans un nouvel onglet et ${fileName} téléchargé`);
+      } catch (error) {
+        renderError(error);
+        setStatus("error", "Échec du dump SQL", "pg_dump n’a pas pu produire le fichier");
+        throw error;
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function exportDatabase() {
+      if (!state.db || state.running) return;
+      setBusy(true, "Préparation de l’archive PGlite…");
+      try {
+        const blob = await state.db.dumpDataDir("gzip");
+        downloadBlob(blob, `pglite-studio-${new Date().toISOString().slice(0,10)}.tar.gz`);
+        setStatus("ready", "Archive générée", "Archive binaire PGlite téléchargée");
+      } catch (error) {
+        renderError(error);
+        setStatus("error", "Échec de sauvegarde", "Impossible d’exporter la base");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function exportCsv() {
+      const result = state.results[state.activeResult];
+      const rows = result?.rows || [];
+      const fields = result?.fields?.map(field => field.name) || (rows[0] ? Object.keys(rows[0]) : []);
+      if (!rows.length || !fields.length) return;
+
+      const csvValue = (value) => {
+        if (value === null || value === undefined) return "";
+        let str;
+        if (typeof value === "object") {
+          try { str = JSON.stringify(value, (_, nested) => typeof nested === "bigint" ? nested.toString() : nested); }
+          catch { str = String(value); }
+        } else str = String(value);
+        return `"${str.replaceAll('"', '""')}"`;
+      };
+
+      const csv = [
+        fields.map(csvValue).join(";"),
+        ...rows.map(row => fields.map(field => csvValue(row[field])).join(";")),
+      ].join("\r\n");
+      downloadBlob(new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" }), `pglite-result-${Date.now()}.csv`);
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    async function resetDatabase() {
+      if (!state.db || state.running) return;
+      const accepted = confirm("Cette action va supprimer tous les schémas, tables, vues, fonctions et données utilisateurs de cette base locale. Continuer ?");
+      if (!accepted) return;
+
+      setBusy(true, "Suppression des objets utilisateurs…");
+      try {
+        await state.db.exec(`
+          DO $$
+          DECLARE schema_record RECORD;
+          BEGIN
+            FOR schema_record IN
+              SELECT nspname
+              FROM pg_namespace
+              WHERE nspname !~ '^pg_'
+                AND nspname <> 'information_schema'
+            LOOP
+              EXECUTE format('DROP SCHEMA %I CASCADE', schema_record.nspname);
+            END LOOP;
+          END $$;
+          CREATE SCHEMA public;
+        `);
+        state.results = [];
+        const tab = activeTab();
+        if (tab) tab.results = [];
+        await refreshExplorer();
+        renderMessage("Base réinitialisée", "Tous les objets et toutes les données utilisateurs ont été supprimés.", "success");
+        setStatus("ready", "Base locale prête", "Base utilisateur réinitialisée");
+      } catch (error) {
+        renderError(error);
+        setStatus("error", "Échec de réinitialisation", "La base n’a pas été entièrement réinitialisée");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function importSqlFile(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        openSqlInNewTab(String(reader.result || ""), file.name.replace(/\.sql$/i, "") || "SQL importé");
+        setStatus("ready", "Fichier SQL chargé", `${file.name} chargé dans un nouvel onglet`);
+      };
+      reader.onerror = () => renderMessage("Lecture impossible", `Le fichier ${file.name} n’a pas pu être lu.`);
+      reader.readAsText(file, "UTF-8");
+    }
+
+    function configureSplitters() {
+      let verticalStart = null;
+      elements.verticalSplitter.addEventListener("pointerdown", event => {
+        verticalStart = { x: event.clientX, width: elements.mainLayout.getBoundingClientRect().width, sidebar: document.querySelector(".sidebar").getBoundingClientRect().width };
+        elements.verticalSplitter.setPointerCapture(event.pointerId);
+        elements.verticalSplitter.classList.add("dragging");
+      });
+      elements.verticalSplitter.addEventListener("pointermove", event => {
+        if (!verticalStart) return;
+        const width = Math.min(Math.max(verticalStart.sidebar + event.clientX - verticalStart.x, 220), Math.min(520, verticalStart.width - 420));
+        document.documentElement.style.setProperty("--sidebar-width", `${width}px`);
+        state.editor.refresh();
+      });
+      elements.verticalSplitter.addEventListener("pointerup", event => {
+        verticalStart = null;
+        elements.verticalSplitter.releasePointerCapture(event.pointerId);
+        elements.verticalSplitter.classList.remove("dragging");
+      });
+
+      let horizontalStart = null;
+      elements.horizontalSplitter.addEventListener("pointerdown", event => {
+        const rect = elements.workspace.getBoundingClientRect();
+        horizontalStart = { top: rect.top, height: rect.height };
+        elements.horizontalSplitter.setPointerCapture(event.pointerId);
+        elements.horizontalSplitter.classList.add("dragging");
+      });
+      elements.horizontalSplitter.addEventListener("pointermove", event => {
+        if (!horizontalStart) return;
+        const px = Math.min(Math.max(event.clientY - horizontalStart.top, 190), horizontalStart.height - 150);
+        document.documentElement.style.setProperty("--editor-height", `${px}px`);
+        state.editor.refresh();
+      });
+      elements.horizontalSplitter.addEventListener("pointerup", event => {
+        horizontalStart = null;
+        elements.horizontalSplitter.releasePointerCapture(event.pointerId);
+        elements.horizontalSplitter.classList.remove("dragging");
+      });
+    }
+
+    elements.runBtn.addEventListener("click", runSql);
+    elements.refreshBtn.addEventListener("click", async () => {
+      await ensureActiveTabIsolation("l’actualisation de l’explorateur");
+      await refreshExplorer();
+    });
+    elements.treeSearch.addEventListener("input", applyTreeFilter);
+    elements.newQueryBtn.addEventListener("click", () => createQueryTab());
+    elements.selectAllBtn.addEventListener("click", () => {
+      state.editor.setSelection({ line: 0, ch: 0 }, { line: state.editor.lineCount(), ch: 0 });
+      state.editor.focus();
+    });
+    elements.findBtn.addEventListener("click", () => {
+      state.editor.focus();
+      CodeMirror.commands.findPersistent(state.editor);
+    });
+    elements.replaceBtn.addEventListener("click", () => {
+      state.editor.focus();
+      CodeMirror.commands.replace(state.editor);
+    });
+    elements.addCursorBtn.addEventListener("click", () => addCursorVertical(state.editor, 1));
+    elements.demoBtn.addEventListener("click", showDemoDialog);
+    elements.importSqlBtn.addEventListener("click", () => elements.sqlFileInput.click());
+    elements.sqlFileInput.addEventListener("change", () => {
+      importSqlFile(elements.sqlFileInput.files?.[0]);
+      elements.sqlFileInput.value = "";
+    });
+    elements.exportSqlBtn.addEventListener("click", event => showDatabaseMenu(event));
+    elements.exportDbBtn.addEventListener("click", exportDatabase);
+    elements.exportCsvBtn.addEventListener("click", exportCsv);
+    elements.resetDbBtn.addEventListener("click", resetDatabase);
+    elements.themeBtn.addEventListener("click", () => applyTheme(state.theme === "light" ? "dark" : "light"));
+    elements.atomicModeBtn.addEventListener("click", () => {
+      state.atomicMode = !state.atomicMode;
+      localStorage.setItem(ATOMIC_MODE_STORAGE_KEY, String(state.atomicMode));
+      updateAtomicModeUi();
+    });
+    elements.rollbackTabBtn.addEventListener("click", async () => {
+      const tab = activeTab();
+      if (tab && state.transactionOwnerTabId === tab.id) {
+        await rollbackPhysicalTransaction(tab.id, "Rollback manuel demandé depuis la barre d’outils.");
+        renderMessage("Transaction annulée", "La transaction ouverte dans cet onglet a été rollbackée. La connexion physique est de nouveau propre.", "success");
+        setStatus("ready", "Transaction annulée", "Rollback manuel terminé");
+      }
+    });
+    elements.modalConfirmBtn.addEventListener("click", confirmModal);
+    elements.modalCancelBtn.addEventListener("click", closeModal);
+    elements.modalCloseBtn.addEventListener("click", closeModal);
+    elements.modalBackdrop.addEventListener("click", event => {
+      if (event.target === elements.modalBackdrop) closeModal();
+    });
+
+    document.addEventListener("click", event => {
+      if (!elements.contextMenu.contains(event.target)) hideContextMenu();
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        hideContextMenu();
+        closeModal();
+      }
+      if (event.key === "Enter" && elements.modalBackdrop.classList.contains("visible") && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
+        const tag = event.target?.tagName?.toLowerCase();
+        if (tag !== "textarea") {
+          event.preventDefault();
+          confirmModal();
+        }
+      }
+    });
+    window.addEventListener("blur", hideContextMenu);
+    window.addEventListener("resize", () => {
+      hideContextMenu();
+      state.editor?.refresh();
+    });
+    window.addEventListener("beforeunload", () => {
+      const tab = activeTab();
+      if (tab && state.editor) tab.sql = state.editor.getValue();
+      persistTabs();
+      state.rawDb?.close?.();
+    });
+
+    applyTheme(state.theme);
+    initEditor();
+    configureSplitters();
+    initDatabase();
+  </script>
+</body>
+</html>
